@@ -24,6 +24,14 @@ for (const a of actions) {
   if (a.click) await page.click(a.click);
   if (a.clickXY) await page.mouse.click(a.clickXY[0], a.clickXY[1]);
   if (a.move) await page.mouse.move(a.move[0], a.move[1], { steps: a.steps ?? 8 });
+  if (a.moveTo) {
+    const b = await page.$eval(a.moveTo, (e) => { const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+    await page.mouse.move(b[0] + (a.dx ?? 0), b[1] + (a.dy ?? 0), { steps: a.steps ?? 8 });
+  }
+  if (a.clipOf) {
+    const r = await page.$eval(a.clipOf, (e, pad) => { const b = e.getBoundingClientRect(); return { x: b.x - pad, y: b.y - pad, width: b.width + pad * 2, height: b.height + pad * 2 }; }, a.pad ?? 8);
+    await page.screenshot({ path: `/tmp/attune-${a.name}.png`, clip: r });
+  }
   if (a.down) await page.mouse.down();
   if (a.up) await page.mouse.up();
   if (a.hover) await page.hover(a.hover);

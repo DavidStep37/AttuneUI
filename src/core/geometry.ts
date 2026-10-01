@@ -90,17 +90,24 @@ export type SoftTrackInput = {
 /**
  * Soft track outline used by Slider and Switch.
  * - bulge: gaussian around bumpCx (asymmetric sigma = trail)
- * - volume conservation: far regions shrink by shrinkHalf
+ * - volume conservation: from the crest the track slants down to the ends,
+ *   which shrink by shrinkHalf (perspective of a lifted, end-pinned strip)
  * - conformal ends (适形包裹): an end never sits closer to the thumb than the
  *   vertical clearance, and its corner radius is concentric with the thumb's.
  */
 export function softTrack(i: SoftTrackInput) {
   const minHalf = i.minHalf ?? 1;
   const thin = i.thin ?? 1;
+  // Lifted-in-perspective profile: the lifted crest reads wider, and the track
+  // tapers on a slant from the crest down to the pinned ends, which end up
+  // narrower than rest (近大远小). u = 0 at the crest → 1 at the resting end.
+  const reachL = Math.max(i.sigmaL * 1.5, i.bumpCx - i.left);
+  const reachR = Math.max(i.sigmaR * 1.5, i.right - i.bumpCx);
   const body = (x: number) => {
     const d = x - i.bumpCx;
     const g = gaussian(d, d < 0 ? i.sigmaL : i.sigmaR);
-    const h = i.baseHalf + i.bumpHalf * g - i.shrinkHalf * (1 - g);
+    const u = Math.min(1, Math.abs(d) / (d < 0 ? reachL : reachR));
+    const h = i.baseHalf + i.bumpHalf * g - i.shrinkHalf * u * (1 - g);
     return Math.max(minHalf, h * thin);
   };
   const tc = (i.thumbX0 + i.thumbX1) / 2;
