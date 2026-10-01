@@ -54,16 +54,15 @@ export function Switch({ checked, onChange, disabled, feel: local, ...rest }: Sw
       right: W,
       cy: BOX / 2,
       baseHalf: H / 2,
-      thumbCx: cx,
-      thumbHalfW: tw / 2,
+      thumbX0: cx - tw / 2,
+      thumbX1: cx + tw / 2,
       thumbHalfH: th / 2,
+      thumbR: Math.min(tw, th) / 2,
       bumpCx: cx,
       bumpHalf,
       sigmaL: THUMB * 0.7,
       sigmaR: THUMB * 0.7,
       shrinkHalf: bumpHalf * 0.5,
-      stretchL: 0,
-      stretchR: 0,
     });
     return { d: res.d, cx, tw, th };
   });

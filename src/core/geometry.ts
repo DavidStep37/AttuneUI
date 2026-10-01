@@ -74,16 +74,16 @@ export type SoftTrackInput = {
   right: number; // resting right edge
   cy: number;
   baseHalf: number; // resting half-height
-  thumbCx: number; // visual thumb centre
-  thumbHalfW: number; // visual (scaled) thumb half-width
-  thumbHalfH: number; // visual (scaled) thumb half-height
-  bumpCx: number; // bulge centre (lags the thumb)
+  thumbX0: number; // visual thumb left edge (already includes stretch)
+  thumbX1: number; // visual thumb right edge
+  thumbHalfH: number; // visual thumb half-height
+  thumbR: number; // visual thumb corner radius
+  bumpCx: number; // bulge centre
   bumpHalf: number; // extra half-height at bulge centre (already × hover × deform)
   sigmaL: number;
   sigmaR: number;
   shrinkHalf: number; // far-field half-height reduction (volume conservation)
-  stretchL: number; // extra outward stretch at the left end (≥0)
-  stretchR: number;
+  thin?: number; // whole-body thickness factor (e.g. while stretched)
   minHalf?: number;
 };
 
@@ -91,27 +91,24 @@ export type SoftTrackInput = {
  * Soft track outline used by Slider and Switch.
  * - bulge: gaussian around bumpCx (asymmetric sigma = trail)
  * - volume conservation: far regions shrink by shrinkHalf
- * - conformal ends: when the thumb nears an end, the end moves outward so that
- *   the horizontal clearance equals the vertical clearance, with a concentric radius.
+ * - conformal ends (适形包裹): an end never sits closer to the thumb than the
+ *   vertical clearance, and its corner radius is concentric with the thumb's.
  */
 export function softTrack(i: SoftTrackInput) {
   const minHalf = i.minHalf ?? 1;
+  const thin = i.thin ?? 1;
   const body = (x: number) => {
     const d = x - i.bumpCx;
     const g = gaussian(d, d < 0 ? i.sigmaL : i.sigmaR);
     const h = i.baseHalf + i.bumpHalf * g - i.shrinkHalf * (1 - g);
-    return Math.max(minHalf, h);
+    return Math.max(minHalf, h * thin);
   };
-  // vertical clearance at the thumb → required horizontal clearance
-  const clearance = Math.max(0, body(i.thumbCx) - i.thumbHalfH);
-  const needL = i.thumbCx - i.thumbHalfW - clearance;
-  const needR = i.thumbCx + i.thumbHalfW + clearance;
-  const x0 = Math.min(i.left, needL) - i.stretchL;
-  const x1 = Math.max(i.right, needR) + i.stretchR;
-  // stretching thins the whole body a little (volume conservation)
-  const thin = 1 - Math.min(0.25, ((i.stretchL + i.stretchR) / Math.max(1, i.right - i.left)) * 1.2);
-  const capR = i.thumbHalfW + clearance;
-  const half = (x: number) => capHalf(x, x0, x1, body(x) * thin, capR);
+  const tc = (i.thumbX0 + i.thumbX1) / 2;
+  const clearance = Math.max(0, body(tc) - i.thumbHalfH);
+  const x0 = Math.min(i.left, i.thumbX0 - clearance);
+  const x1 = Math.max(i.right, i.thumbX1 + clearance);
+  const capR = i.thumbR + clearance;
+  const half = (x: number) => capHalf(x, x0, x1, body(x), capR);
   const xs = samples(x0, x1, capR + 1);
   return { d: profilePath(xs, half, () => i.cy), x0, x1, clearance };
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { motion, useMotionValueEvent, useTransform } from "motion/react";
+import { motion, useAnimationFrame, useMotionValue, useTransform } from "motion/react";
 import { useFeel } from "../core/feel";
 import { clamp, roundTo, rubber, softTrack } from "../core/geometry";
 import { isKeyboardModality, useAnimated, useLatest, useSize } from "../core/hooks";
@@ -49,7 +49,6 @@ export function Slider({
 
   const toFrac = useCallback((v: number) => (max === min ? 0 : clamp((v - min) / (max - min), 0, 1)), [min, max]);
   const frac = useAnimated(toFrac(value));
-  const bump = useAnimated(margin + toFrac(value) * span);
   const hover = useAnimated(0);
   const stretchL = useAnimated(0);
   const stretchR = useAnimated(0);
@@ -77,17 +76,22 @@ export function Slider({
     [geo, onChangeRef],
   );
 
-  // bulge centre follows the thumb with a light lag (spring.follow)
-  const followT = t(p.follow);
-  const followRef = useLatest(followT);
-  useMotionValueEvent(frac.mv, "change", (f) => {
-    const g = geo.current;
-    bump.to(g.margin + f * g.span, followRef.current);
+  // Bulge centre is locked to the thumb. Only the trail *shape* reacts to speed:
+  // velocity is smoothed with spring.follow's time constant, so the asymmetry
+  // eases in/out without making the bulge lag behind.
+  const vel = useMotionValue(0);
+  const spanRef = useLatest(span);
+  const followRef = useLatest(p.follow.visualDuration);
+  useAnimationFrame((_, dt) => {
+    const target = frac.mv.getVelocity() * spanRef.current;
+    const cur = vel.get();
+    if (target === 0 && cur === 0) return;
+    const tau = Math.max(0.008, followRef.current / 3);
+    const k = 1 - Math.exp(-dt / 1000 / tau);
+    let next = cur + (target - cur) * k;
+    if (Math.abs(next) < 2 && target === 0) next = 0;
+    if (next !== cur) vel.set(next);
   });
-  useEffect(() => {
-    bump.set(margin + frac.mv.get() * span);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [W, margin]);
 
   // external value → animate thumb
   useEffect(() => {
@@ -105,43 +109,55 @@ export function Slider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bulging]);
 
-  const thumbScale = useTransform(hover.mv, (h) => 1 + (p.thumbHoverScale - 1) * h * Math.min(1, deform));
-
   const shape = useTransform(
-    [frac.mv, bump.mv, hover.mv, stretchL.mv, stretchR.mv, thumbScale] as const,
-    ([f, bx, h, sl, sr, sc]: number[]) => {
-      if (W <= 0) return { d: "", x0: 0, cx: 0 };
-      const cx = margin + f * span - sl + sr;
-      const vel = bump.mv.getVelocity();
-      const speed = Math.min(1, Math.abs(vel) / 1500);
+    [frac.mv, hover.mv, stretchL.mv, stretchR.mv, vel] as const,
+    ([f, h, sl, sr, v]: number[]) => {
+      if (W <= 0) return null;
+      const sc = 1 + (p.thumbHoverScale - 1) * h * Math.min(1, deform);
+      const cx = margin + f * span;
+      // past an extreme the thumb itself stretches toward the pull (体积守恒: a little thinner)
+      const w0 = SLIDER_THUMB.w * sc;
+      const stretch = sl + sr;
+      const tw = w0 + stretch;
+      const th = SLIDER_THUMB.h * sc * (1 - 0.3 * p.endShrink * Math.min(1, stretch / (w0 * 2)));
+      const tx0 = cx - w0 / 2 - sl;
+      const tx1 = cx + w0 / 2 + sr;
+      const tc = (tx0 + tx1) / 2;
+      const speed = Math.min(1, Math.abs(v) / 1500);
       const sigma = p.bulgeWidth * SLIDER_THUMB.w * 0.4;
       const trail = p.trail * speed * deform;
-      const behindWide = sigma * (1 + trail * 2);
-      const frontNarrow = sigma * (1 - trail * 0.3);
+      const behind = sigma * (1 + trail * 2);
+      const front = sigma * (1 - trail * 0.3);
       const bumpHalf = (p.bulgeHeight / 2) * h * deform;
       const res = softTrack({
         left: 0,
         right: W,
         cy: HEIGHT / 2,
         baseHalf,
-        thumbCx: cx,
-        thumbHalfW: (SLIDER_THUMB.w * sc) / 2,
-        thumbHalfH: (SLIDER_THUMB.h * sc) / 2,
-        bumpCx: bx - sl + sr,
+        thumbX0: tx0,
+        thumbX1: tx1,
+        thumbHalfH: th / 2,
+        thumbR: w0 / 2,
+        bumpCx: tc,
         bumpHalf,
-        sigmaL: vel > 0 ? behindWide : frontNarrow,
-        sigmaR: vel > 0 ? frontNarrow : behindWide,
+        sigmaL: v > 0 ? behind : front,
+        sigmaR: v > 0 ? front : behind,
         shrinkHalf: bumpHalf * p.endShrink,
-        stretchL: sl,
-        stretchR: sr,
+        thin: 1 - Math.min(0.2, (stretch / Math.max(1, W)) * 1.2),
       });
-      return { d: res.d, x0: res.x0, cx };
+      // fill: empty at min, full at max, through the thumb centre in between
+      const fillEnd = tc + (2 * f - 1) * (tw / 2 + res.clearance);
+      return { d: res.d, x0: res.x0, fillEnd, tx0, tw, th, r: w0 / 2 };
     },
   );
-  const d = useTransform(shape, (s) => s.d);
-  const fillX = useTransform(shape, (s) => s.x0 - 1);
-  const fillW = useTransform(shape, (s) => Math.max(0, s.cx - s.x0 + 1));
-  const thumbX = useTransform(shape, (s) => s.cx - SLIDER_THUMB.w / 2);
+  const d = useTransform(shape, (s) => s?.d ?? "");
+  const fillX = useTransform(shape, (s) => (s ? s.x0 - 1 : 0));
+  const fillW = useTransform(shape, (s) => (s ? Math.max(0, s.fillEnd - s.x0 + 1) : 0));
+  const thumbX = useTransform(shape, (s) => s?.tx0 ?? 0);
+  const thumbY = useTransform(shape, (s) => (s ? (HEIGHT - s.th) / 2 : (HEIGHT - SLIDER_THUMB.h) / 2));
+  const thumbW = useTransform(shape, (s) => s?.tw ?? SLIDER_THUMB.w);
+  const thumbH = useTransform(shape, (s) => s?.th ?? SLIDER_THUMB.h);
+  const thumbR = useTransform(shape, (s) => s?.r ?? SLIDER_THUMB.w / 2);
 
   /* ---------------------------------------------------------- pointer */
 
@@ -281,7 +297,7 @@ export function Slider({
         aria-label={aria["aria-label"]}
         aria-valuetext={aria["aria-valuetext"]}
         data-kbd={keyFocus || undefined}
-        style={{ x: thumbX, scale: thumbScale, width: SLIDER_THUMB.w, height: SLIDER_THUMB.h, top: (HEIGHT - SLIDER_THUMB.h) / 2 }}
+        style={{ x: thumbX, y: thumbY, width: thumbW, height: thumbH, borderRadius: thumbR, top: 0 }}
         onKeyDown={onKeyDown}
         onFocus={() => setKeyFocus(isKeyboardModality())}
         onBlur={() => setKeyFocus(false)}

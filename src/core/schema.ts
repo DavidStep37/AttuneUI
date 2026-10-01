@@ -60,7 +60,7 @@ export const componentSchemas = {
     n("bulgeWidth", "影响宽度", "鼓包", 1, 8, 0.1, { inherit: "falloffRadius", unit: "×", hint: "手柄宽度的倍数" }),
     n("endShrink", "两端收缩", "鼓包", 0, 1, 0.01, { inherit: "volumeConservation", hint: "体积守恒：远端变矮的程度" }),
     n("trail", "拖尾", "鼓包", 0, 1, 0.01, { default: 0.2 }),
-    s("follow", "跟随", "鼓包", "follow"),
+    s("follow", "拖尾响应", "鼓包", "follow", "拖尾形状跟上速度变化的快慢；鼓包位置始终与手柄同步"),
     s("recover", "复原", "鼓包", "soft"),
     n("edgePadding", "端点留白", "端点", 0, 6, 0.5, { default: 3, unit: "px" }),
     n("edgeResistance", "极值阻力", "端点", 0, 1, 0.01, { inherit: "edgeResistance" }),
