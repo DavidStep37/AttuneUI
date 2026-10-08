@@ -29,8 +29,10 @@ try {
     const box = el.getBoundingClientRect(), frame = el.querySelector('.at-input-frame').getBoundingClientRect();
     return { right: root.right - unit.right, gap: unit.left - frame.right, centre: box.x + box.width / 2, rootRight: root.right };
   });
+  // Unit travel reserve equals the default `input.expand` (src/core/schema.ts).
+  const EXPAND = 3;
   const restingSpacing = await spacing();
-  assert(Math.abs(restingSpacing.right - 4) < 0.1, 'Resting unit reserves 4px on the right');
+  assert(Math.abs(restingSpacing.right - EXPAND) < 0.1, `Resting unit reserves ${EXPAND}px (input.expand) on the right`);
   assert(Math.abs(restingSpacing.gap - 4) < 0.1, 'Resting number box and unit have a 4px gap');
   assert(Math.abs((await inspect()).length - 20) < 0.1, 'Resting underline is 20px long');
   assert.equal((await inspect()).surface, 0);
@@ -74,7 +76,8 @@ try {
   const expansion = await page.evaluate(() => window.inputTrace);
   assert(expansion.filter(f => f.grow > 0.02 && f.grow < 0.98).length >= 6, 'Focus visibly interpolates through multiple sizes');
   assert(expansion.every(f => f.progress === 1), 'Focus keeps the completed stroke intact');
-  assert(Math.abs(expansion.at(-1).w - trace[0].w - 10) < 0.1 && Math.abs(expansion.at(-1).h - trace[0].h - 8) < 0.1, 'Final focus dimensions are unchanged');
+  // Horizontal edges move out by expand + 1px stroke, vertical edges by expand.
+  assert(Math.abs(expansion.at(-1).w - trace[0].w - 2 * (EXPAND + 1)) < 0.1 && Math.abs(expansion.at(-1).h - trace[0].h - 2 * EXPAND) < 0.1, 'Final focus dimensions are unchanged');
   assert.equal((await inspect()).surface, 1);
   const selection = await page.$eval('.at-input-field', el => {
     const css = getComputedStyle(el, '::selection');
@@ -96,7 +99,7 @@ try {
   assert.equal((await inspect()).grow, 0, 'Blur gently shrinks back to hover size');
   await page.mouse.move(0, 0); await pause(700);
   assert.equal((await inspect()).progress, 0, 'Blur reverses the drawing back to an underline');
-  assert(Math.abs((await spacing()).right - 4) < 0.1, 'Blur restores the unit right padding');
+  assert(Math.abs((await spacing()).right - EXPAND) < 0.1, 'Blur restores the unit right padding');
   await page.hover('.pg-card-slot:nth-child(2) .at-input-unit'); await pause(200);
   assert.equal((await inspect()).progress, 0, 'Only the number region draws the hover frame');
   await startTrace();

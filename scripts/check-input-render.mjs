@@ -15,6 +15,15 @@ try {
     await page.setViewport({ width: 1440, height: 1050, deviceScaleFactor: 2 });
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: theme }, { name: 'prefers-reduced-motion', value: 'no-preference' }]);
     await page.goto(`${process.env.ATTUNE_URL ?? 'http://localhost:5188'}/${panel ? '#sample' : ''}`, { waitUntil: 'networkidle0' });
+    // Screenshots take ~10–70ms each depending on the machine; the 200ms default stroke
+    // would yield too few frames to sample. Slow the stroke (as check-input-motion does):
+    // this test verifies real pixels draw progressively, not the default duration.
+    await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem('attune-playground-v1') ?? '{}');
+      state.overrides = { ...state.overrides, input: { ...state.overrides?.input, drawDuration: 900 } };
+      localStorage.setItem('attune-playground-v1', JSON.stringify(state));
+    });
+    await page.reload({ waitUntil: 'networkidle0' });
     const selector = panel ? '.at-panel .at-input-box' : '.pg-card-slot:nth-child(2) .at-input-box';
     await page.$eval(selector, el => el.scrollIntoView({ block: 'center' }));
     await page.mouse.move(0, 0); await pause(700);

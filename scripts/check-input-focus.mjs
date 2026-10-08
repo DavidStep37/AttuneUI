@@ -45,11 +45,12 @@ try {
     assert.equal((await metrics(target)).dx, 0, 'Pointer leave restores an unfocused input');
     await page.focus(target); await new Promise(resolve => setTimeout(resolve, 1900));
     const focused = await metrics(target);
-    assert(focused.dx > 7.8 && focused.dy > 7.8, 'Keyboard focus expands all four frame edges');
+    // Each edge moves out by the default `input.expand` (3px), so both axes grow by ≥ 2 × 3px.
+    assert(focused.dx > 5.8 && focused.dy > 5.8, 'Keyboard focus expands all four frame edges');
     assert.deepEqual(focused.clipped, [], 'Focused frame is inside every clipping ancestor');
     await page.keyboard.press('Enter'); await pause();
     const edited = await metrics(target);
-    assert(edited.dx > 7.8 && edited.dy > 7.8);
+    assert(edited.dx > 5.8 && edited.dy > 5.8);
     assert.deepEqual(edited.clipped, [], 'Right-aligned input frame remains visible while editing');
     assert(!edited.textClipped, 'All selected digits fit inside the input');
     assert.equal(await page.$eval('.at-input-field', el => getComputedStyle(el).textAlign), 'center');
@@ -64,7 +65,7 @@ try {
     await page.$eval(scale, el => el.scrollIntoView({ block: 'center' }));
     await page.click(scale); await new Promise(resolve => setTimeout(resolve, 1900));
     const nested = await metrics(scale);
-    assert(nested.dx > 7.8);
+    assert(nested.dx > 5.8);
     assert.deepEqual(nested.clipped, [], 'Nested switch reveal does not crop the expanded input');
     await page.keyboard.press('Escape');
     const group = await page.$$('.at-group-toggle');

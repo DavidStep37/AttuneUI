@@ -65,7 +65,7 @@ const sd = <K extends string>(key: K, label: string, group: string, value: Sprin
 export const componentSchemas = {
   slider: [
     n("thumbHoverScale", "hover 放大", "手柄", 1, 3, 0.01, { default: 2.5, unit: "×" }),
-    sd("thumbSpring", "点击轨道滑动", "手柄", { visualDuration: 0.24, bounce: 0.3 }),
+    sd("thumbSpring", "点击轨道滑动", "手柄", { visualDuration: 0.24, bounce: 0.2 }),
     n("bulgeHeight", "双层鼓包高度", "鼓包", 0, 14, 0.5, { default: 8, unit: "px", hint: "已选柱体与外轨道同步撑开" }),
     n("bulgeWidth", "影响宽度", "鼓包", 1, 8, 0.1, { default: 2, unit: "×", hint: "手柄两侧曲线的展开距离；越小越像紧凑驼峰，不随已选长度增加" }),
     n("endInset", "两端收窄", "鼓包", 0, 3, 0.1, { default: 3, unit: "px", hint: "手柄附近悬停和拖拽时，外轨道与深色填充的上下边缘各内收此距离，两端等量；空白轨道悬停仅变色" }),
@@ -78,12 +78,12 @@ export const componentSchemas = {
     n("maxStretch", "最大拉伸", "端点", 0, 24, 1, { inherit: "edgeMaxStretch", unit: "px" }),
   ],
   input: [
-    n("expand", "外框外扩", "外框", 0, 10, 0.5, { default: 4, unit: "px", hint: "描边闭合时，外框各边向外扩出的距离；数字保持居中" }),
-    n("drawDuration", "描边时长", "外框", 100, 4000, 20, { default: 300, unit: "ms", hint: "悬停时从下划线画成小外框的时间，独立于全局弹簧；越小越快，最快 100ms" }),
-    n("expandDuration", "放大时长", "外框", 300, 1000, 20, { default: 480, unit: "ms", hint: "聚焦后从小外框放大到编辑尺寸的时间；数字立即进入编辑" }),
+    n("expand", "外框外扩", "外框", 0, 10, 0.5, { default: 3, unit: "px", hint: "描边闭合时，外框各边向外扩出的距离；数字保持居中" }),
+    n("drawDuration", "描边时长", "外框", 100, 4000, 20, { default: 200, unit: "ms", hint: "悬停时从下划线画成小外框的时间，独立于全局弹簧；越小越快，最快 100ms" }),
+    n("expandDuration", "放大时长", "外框", 300, 1000, 20, { default: 300, unit: "ms", hint: "聚焦后从小外框放大到编辑尺寸的时间；数字立即进入编辑" }),
     n("bgShift", "底色变化", "外框", 0, 1, 0.01, { default: 1 }),
     n("highlight", "高光强度", "外框", 0, 1, 0.01, { default: 1 }),
-    n("scrubSensitivity", "拖动灵敏度", "拖动调值", 0.05, 2, 0.05, { default: 0.5, unit: "步/px" }),
+    n("scrubSensitivity", "拖动灵敏度", "拖动调值", 0.05, 2, 0.05, { default: 0.95, unit: "步/px" }),
   ],
   timeline: [
     n("edgePadding", "两端安全区", "布局", 4, 24, 1, { default: 10, unit: "px", hint: "0 刻度和结束刻度距离轨道边缘的留白，横条与刻度一起内移" }),

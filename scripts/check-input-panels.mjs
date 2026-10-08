@@ -59,7 +59,9 @@ try {
     const span = (frames, key) => { const moving = frames.filter(f => f[key] > 0 && f[key] < 1); return moving.length > 1 ? moving.at(-1).t - moving[0].t : 0; };
     const result = { context, fast, drawMs: Math.round(span(hover, 'draw')), growMs: Math.round(span(focus, 'grow')), remounted: [...hover, ...focus].some(f => !f.connected) };
     console.log(result);
-    if (result.drawMs < 200 || result.growMs < 300 || result.remounted) failures.push(result);
+    // Defaults: drawDuration 200ms, expandDuration 300ms (src/core/schema.ts). Frame sampling
+    // reads slightly under the nominal time, so require ≥ 80% — far above a collapsed 20ms spring.
+    if (result.drawMs < 200 * 0.8 || result.growMs < 300 * 0.8 || result.remounted) failures.push(result);
     await page.screenshot({ path: `${out}/panel-${context}-${fast ? 'saved-fast' : 'default'}.png` });
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
     await pause(500);
