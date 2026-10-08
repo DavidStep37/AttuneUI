@@ -200,7 +200,11 @@ export function nestedSlider(i: NestedSliderInput) {
   const sigma = Math.max(8, (SLIDER_INNER_HALF + bump) * 1.3 * i.bulgeWidth / 3);
   const sigmaL = Math.max(4, sigma * (1 + trail));
   const sigmaR = Math.max(4, sigma * (1 - trail * 0.5));
-  const crest = (x: number) => gaussian(x - cx, x < cx ? sigmaL : sigmaR);
+  // Stretched past an extreme, the thumb becomes a capsule with a flat middle.
+  // The crest stretches with it (flat-topped gaussian), so the rail keeps
+  // carrying the capsule's sides instead of meeting its round end at an angle.
+  const crestFlat = Math.max(0, (thumbW - thumbH) / 2);
+  const crest = (x: number) => gaussian(Math.max(0, Math.abs(x - cx) - crestFlat), x < cx ? sigmaL : sigmaR);
 
   // Both ends share a fixed thickness. A shallow, symmetric neck dips below
   // that thickness and rises back to each end; no stored volume or strain.

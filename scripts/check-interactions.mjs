@@ -59,7 +59,7 @@ try {
   assert.notEqual(await page.$eval(`${slider} .at-slider-track`, el => getComputedStyle(el).fill), restColor, "Empty track hover changes only the rail color");
   await page.mouse.move(restGrip.x + restGrip.w / 2 + 10, restGrip.y + restGrip.h / 2); await pause();
   const hovered = await shape(slider);
-  assert(Math.abs(hovered.thumb - 14.4) < 0.05, "Near-handle hover preserves the previous expanded size");
+  assert(Math.abs(hovered.thumb - 15) < 0.05, "Near-handle hover uses the tuned expanded size (6px × 2.5)");
   assert(await thickness(slider, "right") < restRight - 1, "Right endpoint narrows on hover");
   const hoverThickness = await thickness(slider);
   assert.notEqual(hovered.outer, rest.outer);

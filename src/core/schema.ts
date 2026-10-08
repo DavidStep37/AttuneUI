@@ -52,19 +52,29 @@ const s = <K extends string>(key: K, label: string, group: string, inherit: Spri
   hint,
 });
 
+/** Spring with its own tuned default instead of inheriting a shared spring token. */
+const sd = <K extends string>(key: K, label: string, group: string, value: SpringToken, hint?: string): SpringParam & { key: K } => ({
+  type: "spring",
+  key,
+  label,
+  group,
+  default: value,
+  hint,
+});
+
 export const componentSchemas = {
   slider: [
-    n("thumbHoverScale", "hover 放大", "手柄", 1, 3, 0.01, { default: 2.4, unit: "×" }),
-    s("thumbSpring", "点击轨道滑动", "手柄", "snappy"),
-    n("bulgeHeight", "双层鼓包高度", "鼓包", 0, 14, 0.5, { default: 10, unit: "px", hint: "已选柱体与外轨道同步撑开" }),
-    n("bulgeWidth", "影响宽度", "鼓包", 1, 8, 0.1, { inherit: "falloffRadius", unit: "×", hint: "手柄两侧曲线的展开距离；越小越像紧凑驼峰，不随已选长度增加" }),
-    n("endInset", "两端收窄", "鼓包", 0, 3, 0.1, { default: 2.4, unit: "px", hint: "手柄附近悬停和拖拽时，外轨道与深色填充的上下边缘各内收此距离，两端等量；空白轨道悬停仅变色" }),
-    n("neckDepth", "中段内凹", "鼓包", 0, 2, 0.1, { default: 1, unit: "px", hint: "鼓包过渡到端点时轻微内凹，再平滑回升；0 为平直柱身" }),
-    n("trail", "拖尾", "鼓包", 0, 1, 0.01, { default: 0.2 }),
-    s("follow", "拖尾响应", "鼓包", "follow", "拖尾形状跟上速度变化的快慢；鼓包位置始终与手柄同步"),
-    s("recover", "复原", "鼓包", "soft"),
-    n("edgePadding", "内外层间距", "端点", 1, 6, 0.5, { default: 2, unit: "px" }),
-    n("edgeResistance", "极值阻力", "端点", 0, 1, 0.01, { inherit: "edgeResistance" }),
+    n("thumbHoverScale", "hover 放大", "手柄", 1, 3, 0.01, { default: 2.5, unit: "×" }),
+    sd("thumbSpring", "点击轨道滑动", "手柄", { visualDuration: 0.24, bounce: 0.3 }),
+    n("bulgeHeight", "双层鼓包高度", "鼓包", 0, 14, 0.5, { default: 8, unit: "px", hint: "已选柱体与外轨道同步撑开" }),
+    n("bulgeWidth", "影响宽度", "鼓包", 1, 8, 0.1, { default: 2, unit: "×", hint: "手柄两侧曲线的展开距离；越小越像紧凑驼峰，不随已选长度增加" }),
+    n("endInset", "两端收窄", "鼓包", 0, 3, 0.1, { default: 3, unit: "px", hint: "手柄附近悬停和拖拽时，外轨道与深色填充的上下边缘各内收此距离，两端等量；空白轨道悬停仅变色" }),
+    n("neckDepth", "中段内凹", "鼓包", 0, 2, 0.1, { default: 1.5, unit: "px", hint: "鼓包过渡到端点时轻微内凹，再平滑回升；0 为平直柱身" }),
+    n("trail", "拖尾", "鼓包", 0, 1, 0.01, { default: 0.3 }),
+    sd("follow", "拖尾响应", "鼓包", { visualDuration: 0.1, bounce: 0.3 }, "拖尾形状跟上速度变化的快慢；鼓包位置始终与手柄同步"),
+    sd("recover", "复原", "鼓包", { visualDuration: 0.2, bounce: 0.2 }),
+    n("edgePadding", "内外层间距", "端点", 1, 6, 0.5, { default: 2.5, unit: "px" }),
+    n("edgeResistance", "极值阻力", "端点", 0, 1, 0.01, { default: 0.5 }),
     n("maxStretch", "最大拉伸", "端点", 0, 24, 1, { inherit: "edgeMaxStretch", unit: "px" }),
   ],
   input: [

@@ -100,4 +100,34 @@ for (const width of [60, 140, 280, 640]) {
     }
   }
 }
-console.log(`PASS nested slider: equal ends, shallow neck, direction-independent thickness, round head, reduced motion, ${cases} containment/finite-geometry cases`);
+
+// Overscroll must not create a kink where the rail meets the stretched head.
+// Measure the largest turning angle between 0.25px segments on the shoulder;
+// stretched shapes must stay as smooth as the resting hover shape.
+{
+  const tuned = { ...base, gap: 2.5, bulgeHeight: 8, bulgeWidth: 2, thumbHoverScale: 2.5, endInset: 3, neckDepth: 1.5, trail: 0.3, focus: 1 };
+  const turn = (fn, a, b) => {
+    const h = 0.25;
+    let worst = 0;
+    for (let x = a + h; x < b - h; x += h) {
+      const s1 = (fn(x) - fn(x - h)) / h;
+      const s2 = (fn(x + h) - fn(x)) / h;
+      worst = Math.max(worst, Math.abs(Math.atan(s2) - Math.atan(s1)) * 180 / Math.PI);
+    }
+    return worst;
+  };
+  const shoulder = (s, side) => {
+    const flat = (s.thumbW - s.thumbH) / 2;
+    return side < 0 ? [s.cx - 40, s.cx - flat - 0.5] : [s.cx + flat + 0.5, s.cx + 40];
+  };
+  const restShape = nestedSlider({ ...tuned, progress: 0.5 });
+  const limit = Math.max(turn(restShape.outerHalf, ...shoulder(restShape, -1)), turn(restShape.innerHalf, ...shoulder(restShape, -1))) * 1.3;
+  for (const pull of [4, 8, 16]) {
+    const atMax = nestedSlider({ ...tuned, progress: 1, stretchR: pull });
+    const atMin = nestedSlider({ ...tuned, progress: 0, stretchL: pull });
+    assert(turn(atMax.outerHalf, ...shoulder(atMax, -1)) <= limit, `Outer shoulder stays smooth when pulled ${pull}px past max`);
+    assert(turn(atMax.innerHalf, ...shoulder(atMax, -1)) <= limit, `Fill shoulder stays smooth when pulled ${pull}px past max`);
+    assert(turn(atMin.outerHalf, ...shoulder(atMin, 1)) <= limit, `Outer shoulder stays smooth when pulled ${pull}px past min`);
+  }
+}
+console.log(`PASS nested slider: equal ends, shallow neck, direction-independent thickness, round head, reduced motion, smooth overscroll shoulder, ${cases} containment/finite-geometry cases`);
