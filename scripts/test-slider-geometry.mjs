@@ -130,4 +130,32 @@ for (const width of [60, 140, 280, 640]) {
     assert(turn(atMin.outerHalf, ...shoulder(atMin, 1)) <= limit, `Outer shoulder stays smooth when pulled ${pull}px past min`);
   }
 }
-console.log(`PASS nested slider: equal ends, shallow neck, direction-independent thickness, round head, reduced motion, smooth overscroll shoulder, ${cases} containment/finite-geometry cases`);
+
+// The head-to-rail seam must be curvature-continuous, not only tangent-continuous:
+// a C1-only blend reads as a "hard" bend even without a visible corner.
+{
+  const tuned = { ...base, gap: 2.5, bulgeHeight: 8, bulgeWidth: 2, thumbHoverScale: 2.5, endInset: 3, neckDepth: 1.5, trail: 0.3, focus: 1 };
+  const curvJump = (fn, a, b) => {
+    const h = 0.1;
+    let prev = null;
+    let worst = 0;
+    for (let x = a; x < b; x += h) {
+      const y0 = fn(x - h), y1 = fn(x), y2 = fn(x + h);
+      const d1 = (y2 - y0) / (2 * h);
+      const k = (y2 - 2 * y1 + y0) / (h * h) / Math.pow(1 + d1 * d1, 1.5);
+      if (prev !== null) worst = Math.max(worst, Math.abs(k - prev) / h);
+      prev = k;
+    }
+    return worst;
+  };
+  for (const o of [{ progress: 0.5 }, { progress: 0.2 }, { progress: 1, stretchR: 8 }, { progress: 0, stretchL: 8 }]) {
+    const s = nestedSlider({ ...tuned, ...o });
+    const flat = (s.thumbW - s.thumbH) / 2;
+    const [a, b] = o.progress === 0 ? [s.cx + flat + 1, s.cx + 30] : [s.cx - 30, s.cx - flat - 1];
+    // At min the fill closes in its round tip right of the handle; stop short of it.
+    const innerEnd = o.progress === 0 ? Math.min(b, s.fillRight - 2) : b;
+    assert(curvJump(s.innerHalf, a, innerEnd) < 0.15, `Fill shoulder curvature is continuous (${JSON.stringify(o)})`);
+    assert(curvJump(s.outerHalf, a, b) < 0.15, `Outer shoulder curvature is continuous (${JSON.stringify(o)})`);
+  }
+}
+console.log(`PASS nested slider: equal ends, shallow neck, direction-independent thickness, round head, reduced motion, smooth overscroll shoulder, curvature-continuous seam, ${cases} containment/finite-geometry cases`);

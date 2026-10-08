@@ -9,11 +9,15 @@ export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.ma
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export const gaussian = (x: number, sigma: number) => Math.exp(-(x * x) / (2 * sigma * sigma));
 
-/** polynomial smooth max, k = blend width in px */
+/**
+ * Cubic smooth max, k = blend width in px. Curvature-continuous (C2): the
+ * blend fades out without a curvature jump, so seams never read as a bend.
+ * (The quadratic version is only C1 and leaves a visibly "hard" shoulder.)
+ */
 export function smoothMax(a: number, b: number, k: number) {
   if (k <= 0) return Math.max(a, b);
   const h = Math.max(k - Math.abs(a - b), 0) / k;
-  return Math.max(a, b) + (h * h * k) / 4;
+  return Math.max(a, b) + (h * h * h * k) / 6;
 }
 
 /** Rubber-band: maps overshoot distance to a saturating stretch. */
@@ -121,7 +125,7 @@ export function softTrack(i: SoftTrackInput) {
   const shellHalf = i.thumbHalfH + clearance;
   const shoulderGate = (distance: number) => {
     const u = clamp(distance / 4, 0, 1);
-    return u * u * (3 - 2 * u);
+    return u * u * u * (u * (6 * u - 15) + 10); // smootherstep: C2, no curvature jump
   };
   const half = (x: number) => {
     const rail = capHalf(x, x0, x1, body(x), capR);
@@ -241,7 +245,7 @@ export function nestedSlider(i: NestedSliderInput) {
   // flat section so its top and bottom remain parallel to the stretched thumb.
   const smoothGate = (v: number) => {
     const u = clamp(v, 0, 1);
-    return u * u * (3 - 2 * u);
+    return u * u * u * (u * (6 * u - 15) + 10); // smootherstep: C2, no curvature jump
   };
   const shoulderBlend = (x: number, rail: number, head: number) =>
     2.5 * focus * smoothGate((Math.abs(x - cx) - flatHalf) / 8)
