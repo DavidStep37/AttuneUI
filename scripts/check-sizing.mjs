@@ -32,7 +32,9 @@ try {
     await page.click(root + ' .at-input-box'); await pause(600);
     assert.deepEqual(await bounds(), resting, `${size}: focus expansion cannot move the number or siblings`);
     const frameHeight = await page.$eval(root + ' .at-input-frame', e => e.getBoundingClientRect().height);
-    assert(Math.abs(frameHeight - (height + 4)) < 0.2, `${size}: focus frame expands beyond the slot`);
+    // Input box is the slot minus 4px; focus grows each side by input.expand (default 3px, src/core/schema.ts).
+    const EXPAND = 3;
+    assert(Math.abs(frameHeight - (height - 4 + 2 * EXPAND)) < 0.2, `${size}: focus frame expands beyond the slot`);
     await page.keyboard.press('Tab'); await page.mouse.move(0, 0); await pause(500);
     await page.click(root + ' .at-select-trigger'); await pause(700);
     const optionHeights = await page.$$eval('.at-select-option', es => es.map(e => e.getBoundingClientRect().height));

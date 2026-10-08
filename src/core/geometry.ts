@@ -280,6 +280,75 @@ export function nestedSlider(i: NestedSliderInput) {
   return { outerPath, fillPath, cx, thumbW, thumbH, left, right, fillLeft, fillRight, outerHalf, innerHalf };
 }
 
+/**
+ * Shell + core (外壳包裹内芯), the Slider's nested look generalised to any
+ * rounded rectangle (Button). Conformal by construction: the core is a rounded
+ * rectangle `inset` px inside the button (radius r − inset, concentric), and
+ * the shell is the core offset outward by exactly `inset` along its normals.
+ * The gap is therefore the same all round, at the ends and over the swell.
+ * Around `bulgeX` the core swells by up to `bulge` px (gaussian), and the shell
+ * rises with it — like the Slider, where both surfaces bulge together.
+ */
+export type ShellCoreInput = {
+  width: number;
+  height: number;
+  radius: number;
+  inset: number;
+  bulge: number;
+  bulgeX: number;
+  sigma: number;
+};
+
+type Pt = [number, number];
+
+function closedPath(pts: Pt[]) {
+  if (pts.length < 3) return "";
+  return pts.map(([x, y], i) => `${i ? "L" : "M"}${f(x)} ${f(y)}`).join("") + "Z";
+}
+
+/** Offset a closed, clockwise (y-down) polygon outward by `d` along vertex normals. */
+function offsetPolygon(pts: Pt[], d: number): Pt[] {
+  if (d === 0) return pts;
+  const n = pts.length;
+  return pts.map(([x, y], i) => {
+    const [ax, ay] = pts[(i - 1 + n) % n];
+    const [bx, by] = pts[(i + 1) % n];
+    const tx = bx - ax;
+    const ty = by - ay;
+    const len = Math.hypot(tx, ty) || 1;
+    return [x + (ty / len) * d, y - (tx / len) * d];
+  });
+}
+
+export function shellCore(i: ShellCoreInput) {
+  const W = Math.max(1, i.width);
+  const H2 = Math.max(0.5, i.height / 2);
+  const r = clamp(i.radius, 0, H2);
+  const inset = clamp(i.inset, 0, H2 - 0.5);
+  const sigma = Math.max(1, i.sigma);
+  const swell = (x: number) => i.bulge * gaussian(x - i.bulgeX, sigma);
+  // Ends swell horizontally as well when the pointer is near them.
+  const cx0 = inset - swell(inset);
+  const cx1 = W - inset + swell(W - inset);
+  const coreR = Math.max(0.5, r - inset);
+  // Round the ends with the corner radius applied to the *swollen* body so the
+  // end stays concentric with the shell instead of flattening.
+  const coreHalf = (x: number) => {
+    const body = H2 - inset + swell(x);
+    return capHalf(x, cx0, cx1, body, Math.min(body, coreR + Math.max(0, swell(x))));
+  };
+  const xs = samples(cx0, cx1, coreR + 2, 1, 0.2);
+  const top: Pt[] = xs.map((x) => [x, H2 - coreHalf(x)]);
+  const bottom: Pt[] = [...xs].reverse().map((x) => [x, H2 + coreHalf(x)]);
+  const raw = [...top, ...bottom];
+  const core: Pt[] = raw.filter(([x, y], k) => {
+    const [px, py] = raw[(k - 1 + raw.length) % raw.length];
+    return Math.abs(x - px) > 1e-6 || Math.abs(y - py) > 1e-6;
+  });
+  const shell = offsetPolygon(core, inset);
+  return { shellPath: closedPath(shell), corePath: closedPath(core), core, shell, coreHalf, cx0, cx1 };
+}
+
 /** Cubic bezier easing evaluation (CSS semantics). */
 export function bezierEasing(x1: number, y1: number, x2: number, y2: number) {
   const cx = 3 * x1;

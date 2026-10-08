@@ -33,7 +33,6 @@ export type TimelineProps = {
   feel?: Partial<ResolvedFeel<"timeline">>;
 };
 
-const BAR_H = 12;
 
 function niceCeil(v: number) {
   const steps = [100, 200, 250, 500, 1000, 2000, 2500, 5000];
@@ -170,6 +169,10 @@ function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, f
   const press = useAnimated(0);
   const pluck = useAnimated(0);
   const pluckAt = useRef({ x: 0, dir: 1, amp: 0 });
+  // Bars fill the lane, leaving the Slider's shell gap to the lane edges (外壳包裹内芯).
+  const BAR_H = Math.max(6, rowHeight - 2 * p.barInset);
+  const swell = useAnimated(0);
+  const swellX = useAnimated(0);
   const drag = useRef<{ mode: Mode; x: number; delay: number; duration: number; scale: number } | null>(null);
   const [mode, setMode] = useState<Mode | null>(null);
   const [hover, setHover] = useState(false);
@@ -180,7 +183,7 @@ function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, f
   const x1 = inset + (item.delay + item.duration) * scale;
   const cy = rowHeight / 2;
 
-  const d = useTransform([thin.mv, press.mv, pluck.mv] as const, ([f, pr, pl]: number[]) => {
+  const d = useTransform([thin.mv, press.mv, pluck.mv, swell.mv, swellX.mv] as const, ([f, pr, pl, sw, sx]: number[]) => {
     if (scale <= 0) return "";
     const spread = p.pressSpread * pr * deform;
     const X0 = clamp(x0 - spread, inset, width - inset);
@@ -189,9 +192,12 @@ function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, f
     const half0 = BAR_H / 2 + spread * 0.5;
     const { x: px, dir, amp } = pluckAt.current;
     const sig = Math.max(12, len * 0.35);
+    // Hover swell: around the pointer the bar pushes back toward the lane edge.
+    const swellAmp = p.bulge * sw * deform;
+    const swellSig = Math.max(6, BAR_H * p.bulgeWidth);
     const body = (x: number) => {
       const u = clamp((x - X0) / len, 0, 1);
-      return half0 * (1 + (f - 1) * Math.sin(Math.PI * u));
+      return half0 * (1 + (f - 1) * Math.sin(Math.PI * u)) + swellAmp * gaussian(x - sx, swellSig);
     };
     const half = (x: number) => capHalf(x, X0, X1, body(x), BAR_H / 2);
     const cyf = (x: number) => {
@@ -202,6 +208,8 @@ function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, f
     return profilePath(samples(X0, X1, BAR_H / 2 + 1, 1.5), half, cyf);
   });
   const filter = useTransform(press.mv, (v) => (v > 0.01 ? `brightness(${1 - p.pressDarken * v})` : "none"));
+
+  const localX = (e: PointerEvent<HTMLDivElement>) => e.clientX - e.currentTarget.parentElement!.getBoundingClientRect().left;
 
   const doPluck = (e: PointerEvent<HTMLDivElement>) => {
     if (suppressPluck || e.buttons !== 0 || !deform) return;
@@ -290,13 +298,21 @@ function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, f
         aria-label={`${item.label}：延迟 ${item.delay}${unit}，时长 ${item.duration}${unit}`}
         aria-valuenow={item.delay}
         data-mode={mode ?? undefined}
-        style={{ left: x0, width: hitW, top: cy - BAR_H / 2 - 4, height: BAR_H + 8 }}
+        style={{ left: x0, width: hitW, top: 0, height: rowHeight }}
         onPointerEnter={(e) => {
           setHover(true);
           doPluck(e);
+          swellX.set(localX(e));
+          swell.to(1, t(p.recover));
         }}
-        onPointerLeave={() => setHover(false)}
-        onPointerMove={onPointerMove}
+        onPointerLeave={() => {
+          setHover(false);
+          swell.to(0, t(p.recover, { exit: true }));
+        }}
+        onPointerMove={(e) => {
+          swellX.to(localX(e), drag.current ? { duration: 0 } : t(p.recover));
+          onPointerMove(e);
+        }}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onLostPointerCapture={onPointerUp}
@@ -311,7 +327,7 @@ function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, f
         )}
       </div>
       {mode && (
-        <RangeReadout item={item} unit={unit} x={x0} top={cy - BAR_H / 2 - 4} width={width} />
+        <RangeReadout item={item} unit={unit} x={x0} top={cy - 10} width={width} />
       )}
     </div>
   );

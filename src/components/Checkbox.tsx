@@ -35,14 +35,23 @@ export function Checkbox({ checked, onChange, indeterminate = false, disabled, c
           aria-describedby={description ? `${generatedId}-description` : undefined}
           onChange={e => onChange(e.target.checked)} />
         <motion.span className="at-checkbox-surface" data-selected={selected || undefined} aria-hidden
+          style={{ ["--at-checkbox-inset" as string]: `${p.inset}px` }}
           variants={{ hover: { scale: 1 + (p.hoverScale - 1) * deform }, press: { scale: 1 - (1 - p.pressScale) * deform } }}
           transition={t(p.spring)}>
-          <AnimatePresence initial={false} mode="wait">
-            {selected && <motion.span key={indeterminate ? "mixed" : "checked"} className="at-checkbox-mark"
-              initial={{ opacity: 0, scale: reduced ? 1 : 0.6, rotate: reduced ? 0 : -12 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0, scale: reduced ? 1 : 0.7 }} transition={t(p.spring)}>
-              {indeterminate ? <IconMinus /> : <IconCheck />}
+          {/* Shell + core (外壳包裹内芯): the checked fill sits inside the box, like the Slider fill. */}
+          <AnimatePresence initial={false}>
+            {selected && <motion.span key="core" className="at-checkbox-core"
+              initial={{ scale: reduced ? 1 : 0.4, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: reduced ? 1 : 0.5, opacity: 0 }} transition={t(p.spring)}>
+              <AnimatePresence initial={false} mode="wait">
+                <motion.span key={indeterminate ? "mixed" : "checked"} className="at-checkbox-mark"
+                  initial={{ opacity: 0, scale: reduced ? 1 : 0.6, rotate: reduced ? 0 : -12 }}
+                  animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                  exit={{ opacity: 0, scale: reduced ? 1 : 0.7 }} transition={t(p.spring)}>
+                  {indeterminate ? <IconMinus size={12} strokeWidth={2.25} /> : <IconCheck size={12} strokeWidth={2.25} />}
+                </motion.span>
+              </AnimatePresence>
             </motion.span>}
           </AnimatePresence>
         </motion.span>

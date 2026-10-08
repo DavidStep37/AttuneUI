@@ -87,6 +87,9 @@ export const componentSchemas = {
   ],
   timeline: [
     n("edgePadding", "两端安全区", "布局", 4, 24, 1, { default: 10, unit: "px", hint: "0 刻度和结束刻度距离轨道边缘的留白，横条与刻度一起内移" }),
+    n("barInset", "横条间距", "布局", 0, 8, 0.25, { default: 2.5, unit: "px", hint: "横条到所在行上下边界的距离；默认对齐 Slider 内外层间距，横条高度 = 行高 − 2 × 间距" }),
+    n("bulge", "局部撑起", "划过", 0, 6, 0.25, { default: 2.5, unit: "px", hint: "以指针位置为中心，横条上下边缘向外鼓起" }),
+    n("bulgeWidth", "撑起范围", "划过", 0.3, 3, 0.05, { default: 1, unit: "×高", hint: "高斯衰减宽度，横条高度的倍数" }),
     n("pluckAmp", "拨弦幅度", "划过", 0, 10, 0.5, { default: 4, unit: "px", hint: "会乘以被动强度" }),
     s("pluckSpring", "拨弦弹簧", "划过", "pluck"),
     n("stretchThin", "拉伸变细", "拉伸", 0, 1, 0.01, { inherit: "volumeConservation" }),
@@ -101,6 +104,9 @@ export const componentSchemas = {
     n("pressTilt", "按压倾斜", "按压", 0, 16, 0.5, { default: 10, unit: "°" }),
     n("pressScale", "按压缩放", "按压", 0.9, 1, 0.005, { default: 0.95, unit: "×" }),
     sd("recover", "回弹", "按压", { visualDuration: 0.25, bounce: 0.3 }),
+    n("inset", "内芯内缩", "包裹", 0, 6, 0.25, { default: 2.5, unit: "px", hint: "hover 时内芯向内收、露出外壳；默认对齐 Slider 内外层间距" }),
+    n("bulge", "局部撑起", "包裹", 0, 6, 0.25, { default: 3, unit: "px", hint: "以指针位置为中心，内芯向外鼓起；超过间距时把外壳一起撑开" }),
+    n("bulgeWidth", "撑起范围", "包裹", 0.2, 2, 0.05, { default: 0.6, unit: "×高", hint: "高斯衰减宽度，按钮高度的倍数" }),
   ],
   bezier: [
     n("pointHoverScale", "控制点放大", "控制点", 1, 2, 0.01, { default: 1.35, unit: "×" }),
@@ -132,6 +138,7 @@ export const componentSchemas = {
     n("hoverScale", "悬停放大", "外框", 1, 1.2, 0.01, { default: 1.08, unit: "×" }),
     n("pressScale", "按压收缩", "外框", 0.8, 1, 0.01, { default: 0.92, unit: "×" }),
     s("spring", "勾选回弹", "选中", "snappy"),
+    n("inset", "内芯间距", "选中", 0, 5, 0.25, { default: 2.5, unit: "px", hint: "选中填充与外框之间的留白，默认对齐 Slider 内外层间距" }),
   ],
   feedback: [
     n("enterOffset", "弹出位移", "入场", 0, 24, 1, { default: 8, unit: "px", hint: "从最终位置下方开始，向上弹到位；文字和气泡一起移动" }),

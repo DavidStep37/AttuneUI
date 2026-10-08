@@ -252,27 +252,49 @@
   inset: 0;
   z-index: -1;
   border-radius: inherit;
-  transition:
-    background-color var(--at-motion-duration-micro) var(--at-ease-standard),
-    box-shadow var(--at-motion-duration-micro) var(--at-ease-standard);
+  transition: box-shadow var(--at-motion-duration-micro) var(--at-ease-standard);
 }
-.at-btn[data-variant="secondary"] .at-btn-surface {
-  background: var(--at-color-surface-sunken);
-  box-shadow: inset 0 0 0 1px var(--at-color-border-subtle);
+/* Shell + core are drawn in SVG (see shellCore). --at-btn-shell is the hover
+   amount 0→1: it reveals the shell for variants that have none at rest. */
+.at-btn-svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
 }
-.at-btn[data-variant="secondary"]:hover .at-btn-surface {
-  background: var(--at-color-surface-hover);
-  box-shadow: inset 0 0 0 1px var(--at-color-border-subtle);
+.at-btn-shell {
+  fill: var(--at-color-surface-sunken);
+  opacity: var(--at-btn-shell, 0);
+}
+.at-btn-shell-line {
+  fill: none;
+  stroke: var(--at-color-border-subtle);
+  stroke-width: 1;
+  opacity: var(--at-btn-shell, 0);
+}
+.at-btn-core {
+  transition: fill var(--at-motion-duration-micro) var(--at-ease-standard);
+}
+.at-btn[data-variant="secondary"] :is(.at-btn-shell, .at-btn-shell-line) {
+  opacity: 1;
+}
+.at-btn[data-variant="secondary"] .at-btn-core {
+  fill: var(--at-color-surface-sunken);
+}
+.at-btn[data-variant="secondary"]:hover .at-btn-core {
+  fill: color-mix(in srgb, var(--at-color-surface-hover) 70%, var(--at-color-border-default));
 }
 .at-btn[data-variant="primary"] {
   color: var(--at-color-fill-primary-contrast);
 }
 .at-btn[data-variant="primary"] .at-btn-surface {
-  background: var(--at-color-fill-primary);
   box-shadow: 0 1px 2px var(--at-color-shadow-color-soft);
 }
-.at-btn[data-variant="primary"]:hover .at-btn-surface {
-  background: var(--at-color-fill-primary-hover);
+.at-btn[data-variant="primary"] .at-btn-core {
+  fill: var(--at-color-fill-primary);
+}
+.at-btn[data-variant="primary"]:hover .at-btn-core {
+  fill: var(--at-color-fill-primary-hover);
 }
 .at-btn[data-variant="ghost"] {
   color: var(--at-color-text-secondary);
@@ -280,8 +302,9 @@
 .at-btn[data-variant="ghost"]:hover {
   color: var(--at-color-text-primary);
 }
-.at-btn[data-variant="ghost"]:hover .at-btn-surface {
-  background: var(--at-color-surface-hover);
+.at-btn[data-variant="ghost"] .at-btn-core {
+  fill: var(--at-color-surface-hover);
+  opacity: var(--at-btn-shell, 0);
 }
 .at-btn-label {
   display: inline-flex;
@@ -1139,7 +1162,13 @@
   pointer-events: none; color: var(--at-color-fill-primary-contrast);
   transition: background-color var(--at-motion-duration-fast) var(--at-ease-standard), box-shadow var(--at-motion-duration-fast) var(--at-ease-standard);
 }
-.at-checkbox-surface[data-selected] { background: var(--at-color-fill-primary); box-shadow: none; }
+.at-checkbox-surface { position: relative; }
+.at-checkbox-core {
+  position: absolute; inset: var(--at-checkbox-inset, 2.5px);
+  display: flex; align-items: center; justify-content: center;
+  border-radius: max(1px, calc(7px - var(--at-checkbox-inset, 2.5px)));
+  background: var(--at-color-fill-primary); color: var(--at-color-fill-primary-contrast);
+}
 .at-checkbox-control input:focus-visible + .at-checkbox-surface { outline: var(--at-focus-width) solid var(--at-color-focus-ring); outline-offset: var(--at-focus-offset); }
 .at-checkbox-mark { display: flex; }
 .at-checkbox-copy { display: flex; flex-direction: column; gap: 4px; padding-top: 2px; line-height: var(--at-text-body-line); }
