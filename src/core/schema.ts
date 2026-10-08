@@ -95,12 +95,12 @@ export const componentSchemas = {
     n("pressDarken", "颜色加深", "整体拖拽", 0, 0.4, 0.01, { default: 0.12 }),
   ],
   button: [
-    n("attract", "吸引偏移", "吸引", 0, 12, 0.5, { default: 5, unit: "px", hint: "会乘以被动强度" }),
-    n("tilt", "倾斜角度", "吸引", 0, 20, 0.5, { default: 8, unit: "°", hint: "会乘以被动强度" }),
-    s("hoverSpring", "跟随", "吸引", "snappy"),
-    n("pressTilt", "按压倾斜", "按压", 0, 16, 0.5, { default: 6, unit: "°" }),
-    n("pressScale", "按压缩放", "按压", 0.9, 1, 0.005, { default: 0.97, unit: "×" }),
-    s("recover", "回弹", "按压", "soft"),
+    n("attract", "吸引偏移", "吸引", 0, 12, 0.5, { default: 8, unit: "px", hint: "会乘以被动强度" }),
+    n("tilt", "倾斜角度", "吸引", 0, 20, 0.5, { default: 15, unit: "°", hint: "会乘以被动强度" }),
+    sd("hoverSpring", "跟随", "吸引", { visualDuration: 0.15, bounce: 0.3 }),
+    n("pressTilt", "按压倾斜", "按压", 0, 16, 0.5, { default: 10, unit: "°" }),
+    n("pressScale", "按压缩放", "按压", 0.9, 1, 0.005, { default: 0.95, unit: "×" }),
+    sd("recover", "回弹", "按压", { visualDuration: 0.25, bounce: 0.3 }),
   ],
   bezier: [
     n("pointHoverScale", "控制点放大", "控制点", 1, 2, 0.01, { default: 1.35, unit: "×" }),
