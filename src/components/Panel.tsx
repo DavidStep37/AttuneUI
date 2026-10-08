@@ -2,9 +2,10 @@ import { useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { springTransition, useFeelState } from "../core/feel";
 import type { ParamDef, ParamValue } from "../core/schema";
-import type { SpringToken } from "../tokens/tokens";
+import type { ControlSize, SpringToken } from "../tokens/tokens";
 import { NumberInput, useScrub } from "./Input";
 import { Slider } from "./Slider";
+import { IconClose, MotionChevronDown, MotionChevronUp } from "../core/icons";
 
 /* ------------------------------------------------------------------ Row */
 
@@ -16,7 +17,10 @@ export function Row({
   labelProps,
   children,
   stacked,
+  className,
+  size = "md",
 }: {
+  size?: ControlSize;
   label: ReactNode;
   hint?: ReactNode;
   modified?: boolean;
@@ -24,9 +28,10 @@ export function Row({
   labelProps?: object;
   children: ReactNode;
   stacked?: boolean;
+  className?: string;
 }) {
   return (
-    <div className="at-row" data-stacked={stacked || undefined}>
+    <div className={`at-row ${className ?? ""}`} data-control-size={size} data-stacked={stacked || undefined}>
       <span className="at-row-label" title={typeof hint === "string" ? hint : undefined} {...labelProps}>
         {modified && (
           <button
@@ -51,6 +56,7 @@ export function Row({
 /* ---------------------------------------------------------- SliderField */
 
 export type SliderFieldProps = {
+  size?: ControlSize;
   label: ReactNode;
   value: number;
   onChange: (v: number) => void;
@@ -64,32 +70,34 @@ export type SliderFieldProps = {
   disabled?: boolean;
 };
 
-/** Label (scrubbable) + Slider + NumberInput readout on the same row. */
-export function SliderField({ label, value, onChange, min, max, step = 1, unit, hint, modified, onReset, disabled }: SliderFieldProps) {
+/** Label and readout share a header; the slider spans the full row below it. */
+export function SliderField({ label, value, onChange, min, max, step = 1, unit, hint, modified, onReset, disabled, size = "md" }: SliderFieldProps) {
   const scrub = useScrub({ value, onChange, step, min, max, disabled });
   return (
     <Row
+      className="at-row-slider"
+      size={size}
       label={label}
       hint={hint}
       modified={modified}
       onReset={onReset}
       labelProps={{ ...scrub.handlers, "data-scrub": true, "data-scrubbing": scrub.scrubbing || undefined }}
     >
-      <Slider value={value} onChange={onChange} min={min} max={max} step={step} disabled={disabled} aria-label={typeof label === "string" ? label : undefined} />
+      <Slider size={size} value={value} onChange={onChange} min={min} max={max} step={step} disabled={disabled} aria-label={typeof label === "string" ? label : undefined} />
       <div className="at-row-value">
-        <NumberInput value={value} onChange={onChange} min={min} max={max} step={step} unit={unit} disabled={disabled} aria-label={typeof label === "string" ? label : undefined} />
+        <NumberInput size={size} value={value} onChange={onChange} min={min} max={max} step={step} unit={unit} disabled={disabled} aria-label={typeof label === "string" ? label : undefined} />
       </div>
     </Row>
   );
 }
 
 /** Number field without slider, label still scrubbable. */
-export function NumberField({ label, value, onChange, min, max, step = 1, unit, hint, modified, onReset }: SliderFieldProps) {
-  const scrub = useScrub({ value, onChange, step, min, max });
+export function NumberField({ label, value, onChange, min, max, step = 1, unit, hint, modified, onReset, disabled, size = "md" }: SliderFieldProps) {
+  const scrub = useScrub({ value, onChange, step, min, max, disabled });
   return (
-    <Row label={label} hint={hint} modified={modified} onReset={onReset} labelProps={{ ...scrub.handlers, "data-scrub": true }}>
+    <Row size={size} label={label} hint={hint} modified={modified} onReset={onReset} labelProps={{ ...scrub.handlers, "data-scrub": true }}>
       <div className="at-row-control-end">
-        <NumberInput value={value} onChange={onChange} min={min} max={max} step={step} unit={unit} />
+        <NumberInput size={size} disabled={disabled} aria-label={typeof label === "string" ? label : undefined} value={value} onChange={onChange} min={min} max={max} step={step} unit={unit} />
       </div>
     </Row>
   );
@@ -149,12 +157,14 @@ export function ParamControls({
   defaults,
   onChange,
   onReset,
+  showDescriptions = false,
 }: {
   schema: ParamDef[];
   values: Record<string, ParamValue>;
   defaults: Record<string, ParamValue>;
   onChange: (key: string, v: ParamValue) => void;
   onReset: (key: string) => void;
+  showDescriptions?: boolean;
 }) {
   const groups: [string, ParamDef[]][] = [];
   for (const d of schema) {
@@ -170,8 +180,7 @@ export function ParamControls({
             const val = values[d.key];
             const modified = !eq(val, defaults[d.key]);
             const hint = d.hint ?? (d.inherit ? `默认继承 ${d.type === "spring" ? "spring" : "feel"}.${d.inherit}` : undefined);
-            if (d.type === "spring")
-              return (
+            const control = d.type === "spring" ? (
                 <SpringField
                   key={d.key}
                   label={d.label}
@@ -181,8 +190,7 @@ export function ParamControls({
                   modified={modified}
                   onReset={() => onReset(d.key)}
                 />
-              );
-            return (
+              ) : (
               <SliderField
                 key={d.key}
                 label={d.label}
@@ -197,6 +205,12 @@ export function ParamControls({
                 onReset={() => onReset(d.key)}
               />
             );
+            return showDescriptions ? (
+              <div key={d.key} className="at-param-explained">
+                {control}
+                {hint && <p className="at-param-description">{hint}</p>}
+              </div>
+            ) : control;
           })}
         </PanelGroup>
       ))}
@@ -220,14 +234,13 @@ export function PanelGroup({
   actions?: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [revealed, setRevealed] = useState(defaultOpen);
   const { springs, reduced } = useFeelState();
   return (
     <section className="at-group" data-open={open || undefined}>
       <div className="at-group-head">
         <button type="button" className="at-group-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          <motion.svg width="10" height="10" viewBox="0 0 10 10" animate={{ rotate: open ? 0 : -90 }} transition={springTransition(springs.snappy, reduced)} aria-hidden>
-            <path d="M2 3.75 5 6.75 8 3.75" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-          </motion.svg>
+          <MotionChevronDown size={12} strokeWidth={1.75} animate={{ rotate: open ? 0 : -90 }} transition={springTransition(springs.snappy, reduced)} aria-hidden="true" />
           <span className="at-group-title">{title}</span>
           {badge && <span className="at-group-badge">{badge}</span>}
         </button>
@@ -237,6 +250,9 @@ export function PanelGroup({
         {open && (
           <motion.div
             className="at-reveal"
+            data-revealed={open && revealed || undefined}
+            onAnimationStart={() => setRevealed(false)}
+            onAnimationComplete={() => setRevealed(open)}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1, transition: { height: springTransition(springs.pop, reduced), opacity: { duration: 0.16 } } }}
             exit={{ height: 0, opacity: 0, transition: { height: springTransition(springs.pop, reduced, { exit: true }), opacity: { duration: 0.1 } } }}
@@ -304,16 +320,12 @@ export function Panel({ title, subtitle, actions, footer, children, floating, on
           {actions}
           {floating && (
             <button type="button" className="at-icon-btn" aria-label={collapsed ? "展开面板" : "收起面板"} onClick={() => setCollapsed((c) => !c)}>
-              <motion.svg width="12" height="12" viewBox="0 0 12 12" animate={{ rotate: collapsed ? 180 : 0 }} transition={springTransition(springs.snappy, reduced)}>
-                <path d="M3 7.5 6 4.5 9 7.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-              </motion.svg>
+              <MotionChevronUp size={14} strokeWidth={1.75} animate={{ rotate: collapsed ? 180 : 0 }} transition={springTransition(springs.snappy, reduced)} aria-hidden="true" />
             </button>
           )}
           {onClose && (
             <button type="button" className="at-icon-btn" aria-label="关闭" onClick={onClose}>
-              <svg width="12" height="12" viewBox="0 0 12 12">
-                <path d="M3.5 3.5l5 5m0-5-5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-              </svg>
+              <IconClose />
             </button>
           )}
         </div>

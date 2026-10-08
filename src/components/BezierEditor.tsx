@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { AnimatePresence, motion, useAnimationFrame, useMotionValue, useTransform, type MotionValue } from "motion/react";
 import { useFeel } from "../core/feel";
 import { bezierEasing, clamp, rubber } from "../core/geometry";
@@ -6,6 +6,7 @@ import { useAnimated } from "../core/hooks";
 import type { ResolvedFeel } from "../core/schema";
 import { NumberInput } from "./Input";
 import { Select } from "./Select";
+import { MotionChevronDown } from "../core/icons";
 
 export type Bezier = [number, number, number, number];
 
@@ -44,6 +45,7 @@ export type BezierEditorProps = {
  */
 export function BezierEditor({ value, onChange, size = 200, showInputs = true, showPresets = true, showPreview = true, showTrack = true, feel: local }: BezierEditorProps) {
   const { p, t, deform } = useFeel("bezier", local);
+  const plotClipId = useId();
   const pad = 10;
   const S = size;
   const H = S * (Y_TOP - Y_BOTTOM);
@@ -150,26 +152,34 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
     onChange(next);
   };
 
-  const grid = [0, 0.25, 0.5, 0.75, 1];
+  const grid = [0.25, 0.5, 0.75];
 
   return (
     <div className="at-bezier" data-at-interactive>
       <div className="at-bezier-graph">
         <svg ref={svgRef} width={S + pad * 2} height={H + pad * 2} className="at-bezier-svg">
-          <rect className="at-bezier-plot" x={sx(0)} y={sy(1)} width={S} height={S} rx={4} />
-          {grid.map((g) => (
-            <g key={g}>
-              <line className="at-bezier-grid" x1={sx(g)} x2={sx(g)} y1={sy(0)} y2={sy(1)} />
-              <line className="at-bezier-grid" x1={sx(0)} x2={sx(1)} y1={sy(g)} y2={sy(g)} />
-            </g>
-          ))}
-          <line className="at-bezier-diag" x1={sx(0)} y1={sy(0)} x2={sx(1)} y2={sy(1)} />
+          <defs>
+            <clipPath id={plotClipId}>
+              <rect x={sx(0)} y={sy(1)} width={S} height={S} rx={8} />
+            </clipPath>
+          </defs>
+          <rect className="at-bezier-plot" x={sx(0)} y={sy(1)} width={S} height={S} rx={8} />
+          <g clipPath={`url(#${plotClipId})`}>
+            {grid.map((g) => (
+              <g key={g}>
+                <line className="at-bezier-grid" x1={sx(g)} x2={sx(g)} y1={sy(0)} y2={sy(1)} />
+                <line className="at-bezier-grid" x1={sx(0)} x2={sx(1)} y1={sy(g)} y2={sy(g)} />
+              </g>
+            ))}
+            <line className="at-bezier-diag" x1={sx(0)} y1={sy(0)} x2={sx(1)} y2={sy(1)} />
+          </g>
+          <rect className="at-bezier-border" x={sx(0)} y={sy(1)} width={S} height={S} rx={8} />
           <motion.line className="at-bezier-arm" x1={sx(0)} y1={sy(0)} x2={c1x} y2={c1y} style={{ strokeWidth: w1 }} />
           <motion.line className="at-bezier-arm" x1={sx(1)} y1={sy(1)} x2={c2x} y2={c2y} style={{ strokeWidth: w2 }} />
           <motion.path className="at-bezier-curve" d={curve} />
           {showPreview && <CurveDot value={value} sx={sx} sy={sy} />}
-          <circle className="at-bezier-end" cx={sx(0)} cy={sy(0)} r={3} />
-          <circle className="at-bezier-end" cx={sx(1)} cy={sy(1)} r={3} />
+          <circle className="at-bezier-end" cx={sx(0)} cy={sy(0)} r={2} />
+          <circle className="at-bezier-end" cx={sx(1)} cy={sy(1)} r={2} />
           {([1, 2] as const).map((i) => (
             <g key={i}>
               <motion.circle
@@ -255,7 +265,7 @@ function CurveDot({ value, sx, sy }: { value: Bezier; sx: (x: number) => number;
   const { time, prog } = useLoopProgress(value);
   const cx = useTransform(time, sx);
   const cy = useTransform(prog, sy);
-  return <motion.circle className="at-bezier-dot" cx={cx} cy={cy} r={2.5} />;
+  return <motion.circle className="at-bezier-dot" cx={cx} cy={cy} r={2} />;
 }
 
 function PreviewBar({ value, width }: { value: Bezier; width: number }) {
@@ -301,9 +311,7 @@ export function BezierField({
             <path d={`M${mx(0)} ${my(0)} C${mx(a)} ${my(b)} ${mx(c)} ${my(d)} ${mx(1)} ${my(1)}`} />
           </svg>
           <span className="at-bezier-text">{formatBezier(value)}</span>
-          <motion.svg width="10" height="10" viewBox="0 0 10 10" animate={{ rotate: open ? 180 : 0 }} transition={t(p.recover)} className="at-select-chevron">
-            <path d="M2 3.75 5 6.75 8 3.75" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-          </motion.svg>
+          <MotionChevronDown size={12} strokeWidth={1.75} animate={{ rotate: open ? 180 : 0 }} transition={t(p.recover)} className="at-select-chevron" aria-hidden="true" />
         </span>
       </button>
       <AnimatePresence initial={false}>

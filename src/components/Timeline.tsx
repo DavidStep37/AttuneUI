@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { motion, useMotionValue, useTransform, type MotionValue } from "motion/react";
 import { useFeel, type FeelRuntime } from "../core/feel";
 import { capHalf, clamp, gaussian, profilePath, roundTo, samples } from "../core/geometry";
@@ -40,8 +40,8 @@ function niceCeil(v: number) {
   for (const s of steps) if (v <= s * 6) return Math.ceil(v / s) * s;
   return Math.ceil(v / 10000) * 10000;
 }
-function tickStep(range: number) {
-  const target = range / 6;
+function tickStep(range: number, count: number) {
+  const target = range / count;
   const opts = [10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000];
   return opts.find((o) => o >= target) ?? 10000;
 }
@@ -69,15 +69,21 @@ export function Timeline({
   const frozen = useRef<number | null>(null);
 
   const auto = useMemo(() => niceCeil(Math.max(400, ...items.map((i) => (i.delay + i.duration) * 1.12))), [items]);
-  const R = range ?? (dragging && frozen.current ? frozen.current : auto);
-  const scale = TW > 0 ? TW / R : 0;
-  const ts = tickStep(R);
+  // Linked items can grow beyond the range captured at pointer-down. Grow the
+  // viewport to fit all items; do not shrink it again until the drag ends.
+  const R = range ?? Math.max(dragging ? frozen.current ?? 0 : 0, auto);
+  useLayoutEffect(() => {
+    if (dragging) frozen.current = R;
+  }, [dragging, R]);
+  const inset = Math.min(feel.p.edgePadding, TW / 4);
+  const scale = TW > 0 ? (TW - inset * 2) / R : 0;
+  const ts = tickStep(R, Math.max(1, Math.min(6, Math.floor(TW / 64))));
   const ticks: number[] = [];
   for (let v = 0; v <= R + 1e-6; v += ts) ticks.push(v);
 
   const fallback = useMotionValue(0);
   const ph = playhead ?? fallback;
-  const phX = useTransform(ph, (v: number) => v * scale);
+  const phX = useTransform(ph, (v: number) => inset + v * scale);
   const phOpacity = useTransform(ph, (v: number) => (v > 0 && v < R ? 1 : 0));
 
   return (
@@ -86,7 +92,7 @@ export function Timeline({
         <span className="at-tl-axis-unit">{unit}</span>
         <div className="at-tl-axis-track">
           {ticks.map((v) => (
-            <span key={v} className="at-tl-tick" style={{ left: v * scale }}>
+            <span key={v} className="at-tl-tick" style={{ left: inset + v * scale }}>
               {v}
             </span>
           ))}
@@ -101,9 +107,11 @@ export function Timeline({
           ))}
         </div>
         <div className="at-tl-track" ref={trackRef}>
-          {ticks.map((v) => (
-            <span key={v} className="at-tl-grid" style={{ left: v * scale }} />
-          ))}
+          <div className="at-tl-grid-clip" aria-hidden>
+            {ticks.filter((v) => v > 0 && v < R).map((v) => (
+              <span key={v} className="at-tl-grid" style={{ left: inset + v * scale }} />
+            ))}
+          </div>
           {items.map((it) => (
             <Bar
               key={it.id}
@@ -111,6 +119,8 @@ export function Timeline({
               scale={scale}
               rowHeight={rowHeight}
               width={TW}
+              inset={inset}
+              limit={range}
               step={step}
               minDuration={minDuration}
               feel={feel}
@@ -140,6 +150,8 @@ type BarProps = {
   scale: number;
   rowHeight: number;
   width: number;
+  inset: number;
+  limit?: number;
   step: number;
   minDuration: number;
   feel: FeelRuntime<"timeline">;
@@ -152,27 +164,27 @@ type BarProps = {
 
 type Mode = "move" | "left" | "right";
 
-function Bar({ item, scale, rowHeight, width, step, minDuration, feel, suppressPluck, unit, onChange, onDragStart, onDragEnd }: BarProps) {
+function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, feel, suppressPluck, unit, onChange, onDragStart, onDragEnd }: BarProps) {
   const { p, t, deform, passive } = feel;
   const thin = useAnimated(1);
   const press = useAnimated(0);
   const pluck = useAnimated(0);
   const pluckAt = useRef({ x: 0, dir: 1, amp: 0 });
-  const drag = useRef<{ mode: Mode; x: number; delay: number; duration: number } | null>(null);
+  const drag = useRef<{ mode: Mode; x: number; delay: number; duration: number; scale: number } | null>(null);
   const [mode, setMode] = useState<Mode | null>(null);
   const [hover, setHover] = useState(false);
   const movable = item.movable !== false;
   const resizable = item.resizable !== false;
 
-  const x0 = item.delay * scale;
-  const x1 = (item.delay + item.duration) * scale;
+  const x0 = inset + item.delay * scale;
+  const x1 = inset + (item.delay + item.duration) * scale;
   const cy = rowHeight / 2;
 
   const d = useTransform([thin.mv, press.mv, pluck.mv] as const, ([f, pr, pl]: number[]) => {
     if (scale <= 0) return "";
     const spread = p.pressSpread * pr * deform;
-    const X0 = x0 - spread;
-    const X1 = x1 + spread;
+    const X0 = clamp(x0 - spread, inset, width - inset);
+    const X1 = clamp(x1 + spread, X0, width - inset);
     const len = Math.max(1, X1 - X0);
     const half0 = BAR_H / 2 + spread * 0.5;
     const { x: px, dir, amp } = pluckAt.current;
@@ -212,7 +224,7 @@ function Bar({ item, scale, rowHeight, width, step, minDuration, feel, suppressP
     e.stopPropagation();
     (e.currentTarget.closest(".at-tl-hit") as HTMLElement).setPointerCapture(e.pointerId);
     (e.currentTarget.closest(".at-tl-hit") as HTMLElement).focus({ preventScroll: true });
-    drag.current = { mode: m, x: e.clientX, delay: item.delay, duration: item.duration };
+    drag.current = { mode: m, x: e.clientX, delay: item.delay, duration: item.duration, scale };
     setMode(m);
     onDragStart();
     pluck.set(0);
@@ -221,12 +233,16 @@ function Bar({ item, scale, rowHeight, width, step, minDuration, feel, suppressP
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     const s = drag.current;
-    if (!s || scale <= 0) return;
-    const dms = (e.clientX - s.x) / scale;
+    if (!s || s.scale <= 0) return;
+    // Keep ms-per-pixel stable even when linked rows expand the visible range.
+    const dms = (e.clientX - s.x) / s.scale;
     let delay = s.delay;
     let duration = s.duration;
-    if (s.mode === "move") delay = Math.max(0, roundTo(s.delay + dms, step));
-    else if (s.mode === "right") duration = Math.max(minDuration, roundTo(s.duration + dms, step));
+    if (s.mode === "move") delay = clamp(roundTo(s.delay + dms, step), 0, Math.max(0, (limit ?? Infinity) - duration));
+    else if (s.mode === "right") {
+      const maxDuration = Math.max(0, (limit ?? Infinity) - delay);
+      duration = clamp(roundTo(s.duration + dms, step), Math.min(minDuration, maxDuration), maxDuration);
+    }
     else {
       const end = s.delay + s.duration;
       delay = clamp(roundTo(s.delay + dms, step), 0, end - minDuration);
@@ -253,15 +269,17 @@ function Bar({ item, scale, rowHeight, width, step, minDuration, feel, suppressP
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     e.preventDefault();
     const k = step * (e.shiftKey ? 10 : 1) * (e.key === "ArrowLeft" ? -1 : 1);
-    if (e.altKey && resizable) onChange({ delay: item.delay, duration: Math.max(minDuration, item.duration + k) });
-    else if (movable) onChange({ delay: Math.max(0, item.delay + k), duration: item.duration });
+    if (e.altKey && resizable) {
+      const maxDuration = Math.max(0, (limit ?? Infinity) - item.delay);
+      onChange({ delay: item.delay, duration: clamp(item.duration + k, Math.min(minDuration, maxDuration), maxDuration) });
+    } else if (movable) onChange({ delay: clamp(item.delay + k, 0, Math.max(0, (limit ?? Infinity) - item.duration)), duration: item.duration });
   };
 
   const hitW = Math.max(8, x1 - x0);
   const edgeW = Math.min(8, Math.max(4, (x1 - x0) / 4));
 
   return (
-    <div className="at-tl-row" style={{ height: rowHeight }}>
+    <div className="at-tl-row" data-active={mode ? true : undefined} style={{ height: rowHeight }}>
       <svg className="at-tl-svg" width={Math.max(1, width)} height={rowHeight} aria-hidden>
         <motion.path className="at-tl-bar" d={d} style={{ filter }} data-active={mode ? true : undefined} data-hover={hover || undefined} />
       </svg>
@@ -281,6 +299,7 @@ function Bar({ item, scale, rowHeight, width, step, minDuration, feel, suppressP
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onLostPointerCapture={onPointerUp}
         onKeyDown={onKeyDown}
       >
         <div className="at-tl-hit-body" data-movable={movable || undefined} onPointerDown={(e) => onPointerDown(e, "move")} />
@@ -292,13 +311,17 @@ function Bar({ item, scale, rowHeight, width, step, minDuration, feel, suppressP
         )}
       </div>
       {mode && (
-        <div className="at-tl-readout" style={{ left: x0 }}>
-          {item.delay}
-          <span>→</span>
-          {item.delay + item.duration}
-          <em>{unit}</em>
-        </div>
+        <RangeReadout item={item} unit={unit} x={x0} top={cy - BAR_H / 2 - 4} width={width} />
       )}
+    </div>
+  );
+}
+
+function RangeReadout({ item, unit, x, top, width }: { item: TimelineItem; unit: string; x: number; top: number; width: number }) {
+  const [ref, size] = useSize<HTMLDivElement>();
+  return (
+    <div ref={ref} className="at-tl-readout" style={{ left: clamp(x, 1, Math.max(1, width - size.width - 1)), top, maxWidth: Math.max(0, width - 2) }}>
+      {item.delay}<span>–</span>{item.delay + item.duration}<em>{unit}</em>
     </div>
   );
 }

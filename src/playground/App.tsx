@@ -6,7 +6,9 @@ import { Switch } from "../components/Switch";
 import { AttuneProvider } from "../core/feel";
 import { feel as feelTokens, spring as springTokens } from "../tokens/tokens";
 import { Gallery } from "./Gallery";
+import { SizingGuide } from "./SizingGuide";
 import { IconReset, Logo } from "./icons";
+import { IconExternal } from "../core/icons";
 import { Sample } from "./Sample";
 import { DemoProvider, StoreProvider, usePlaygroundStore, type Theme } from "./store";
 
@@ -48,8 +50,9 @@ export function App() {
                   ]}
                 />
                 <div className="pg-header-tools">
+                  <a href="?proposal=glass" style={{ color: "var(--at-color-accent-default)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}>5 个样式提案 <IconExternal /></a>
                   <label className="pg-tool">
-                    <span>减弱动效</span>
+                    <span title="开启时跳过描边和缩放；关闭可预览完整交互">{state.reduced ? "减弱动效：绘制／缩放已关闭" : "减弱动效"}</span>
                     <Switch aria-label="减弱动效" checked={state.reduced} onChange={store.setReduced} />
                   </label>
                   <Segmented
@@ -76,6 +79,7 @@ export function App() {
                       <p>卡片里可以直接操作组件；点击卡片空白处展开，调整手感参数。调整会保存在本地，并同步到卡片。</p>
                     </div>
                     <Gallery />
+                    <SizingGuide />
                   </>
                 ) : (
                   <Sample />

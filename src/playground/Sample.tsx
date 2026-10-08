@@ -8,6 +8,7 @@ import { Select } from "../components/Select";
 import { SwitchField } from "../components/Switch";
 import { Timeline, type TimelineItem } from "../components/Timeline";
 import { springSettleMs } from "../core/geometry";
+import { useFeelState } from "../core/feel";
 import { IconCheck, IconCopy, IconPlay, IconReset } from "./icons";
 
 type Order = "row" | "col" | "diag" | "reverse" | "center";
@@ -79,7 +80,8 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 const mockTitles = ["用量概览", "成员管理", "部署记录", "告警规则", "账单", "API 密钥"];
 
-export function Sample() {
+export function Sample({ floating = true }: { floating?: boolean }) {
+  const { reduced } = useFeelState();
   const [cfg, setCfg] = useState<Cfg>(DEFAULT);
   const [auto, setAuto] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -111,30 +113,32 @@ export function Sample() {
     cards.current.forEach((el, i) => {
       if (!el) return;
       const k = orderIndex(i, c.order);
-      const delay = (c.delay + k * c.stagger) / 1000;
+      const delay = reduced ? 0 : (c.delay + k * c.stagger) / 1000;
       const motionT =
-        c.type === "bezier"
+        reduced ? { duration: 0 } : c.type === "bezier"
           ? { duration: c.duration / 1000, ease: c.bezier, delay }
           : { type: "spring" as const, stiffness: c.stiffness, damping: c.damping, delay };
-      const fadeT = { duration: Math.min(effDuration, 360) / 1000, ease: [0.2, 0, 0, 1] as Bezier, delay };
+      const fadeT = { duration: reduced ? 0 : Math.min(effDuration, 360) / 1000, ease: [0.2, 0, 0, 1] as Bezier, delay };
       el.style.opacity = c.fade ? "0" : "1";
       controls.current.push(
         animate(el, { y: [c.distance, 0], scale: [c.scaleOn ? c.scaleFrom : 1, 1] }, motionT),
         animate(el, { opacity: [c.fade ? 0 : 1, 1], filter: [c.blurOn ? `blur(${c.blurFrom}px)` : "blur(0px)", "blur(0px)"] }, fadeT),
       );
     });
-    controls.current.push(animate(playhead, [0, total], { duration: total / 1000, ease: "linear", onComplete: () => playhead.set(0) }));
-  }, [cfg, effDuration, total, playhead]);
+    controls.current.push(animate(playhead, [0, total], { duration: reduced ? 0 : total / 1000, ease: "linear", onComplete: () => playhead.set(0) }));
+  }, [cfg, effDuration, total, playhead, reduced]);
+
+  useEffect(() => () => controls.current.forEach((c) => c.stop()), []);
 
   // replay after changes (debounced), and once on mount
   const first = useRef(true);
   useEffect(() => {
-    if (!first.current && !auto) return;
+    if (!first.current && !auto && !reduced) return;
     const tm = setTimeout(play, first.current ? 200 : 380);
     first.current = false;
     return () => clearTimeout(tm);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cfg]);
+  }, [cfg, reduced]);
 
   const onBar = (id: string, n: { delay: number; duration: number }) => {
     const i = Number(id);
@@ -211,7 +215,7 @@ export function Sample() {
       </div>
 
       <Panel
-        floating
+        floating={floating}
         className="pg-sample-panel"
         title="动效调试"
         subtitle={changed.length ? `已修改 ${changed.length} 项` : "卡片错落入场"}

@@ -5,10 +5,13 @@ import { useFeel } from "../core/feel";
 import { clamp, lerp } from "../core/geometry";
 import { useAnimated } from "../core/hooks";
 import type { ResolvedFeel } from "../core/schema";
+import { IconCheck, MotionChevronDown } from "../core/icons";
+import { controlHeight, type ControlSize } from "../tokens/tokens";
 
 export type SelectOption<V extends string> = { value: V; label: ReactNode; hint?: ReactNode };
 
 export type SelectProps<V extends string> = {
+  size?: ControlSize;
   options: SelectOption<V>[];
   value: V;
   onChange: (v: V) => void;
@@ -19,20 +22,18 @@ export type SelectProps<V extends string> = {
   feel?: Partial<ResolvedFeel<"select">>;
 };
 
-const ROW = 28;
 const PAD = 4;
 
 const Chevron = ({ style }: { style?: object }) => (
-  <motion.svg className="at-select-chevron" width="10" height="10" viewBox="0 0 10 10" style={style} aria-hidden>
-    <path d="M2 3.75 5 6.75 8 3.75" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-  </motion.svg>
+  <MotionChevronDown className="at-select-chevron" size={12} strokeWidth={1.75} style={style} aria-hidden="true" />
 );
 
 /**
  * Select — 列表从入口处被撑开、生长出来 (Handoff §5.8)
  * The list is the trigger itself growing: same surface, same header row.
  */
-export function Select<V extends string>({ options, value, onChange, width, listWidth, disabled, feel: local, ...aria }: SelectProps<V>) {
+export function Select<V extends string>({ options, value, onChange, width, listWidth, disabled, size = "md", feel: local, ...aria }: SelectProps<V>) {
+  const ROW = controlHeight(size);
   const { p, t } = useFeel("select", local);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
@@ -59,6 +60,7 @@ export function Select<V extends string>({ options, value, onChange, width, list
     setOpen(true);
   };
   const doClose = () => setOpen(false);
+  useEffect(() => setOpen(false), [size]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -85,7 +87,7 @@ export function Select<V extends string>({ options, value, onChange, width, list
     hlTop.to(active * ROW, down ? trail : lead);
     hlBot.to(active * ROW + ROW, down ? lead : trail);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
+  }, [active, ROW]);
 
   // outside click / scroll / resize close
   useEffect(() => {
@@ -168,6 +170,7 @@ export function Select<V extends string>({ options, value, onChange, width, list
         ref={triggerRef}
         type="button"
         className="at-select-trigger"
+        data-control-size={size}
         data-at-interactive
         data-open={mounted || undefined}
         aria-haspopup="listbox"
@@ -188,6 +191,7 @@ export function Select<V extends string>({ options, value, onChange, width, list
           <motion.div
             ref={popRef}
             className="at-select-pop"
+            data-control-size={size}
             data-up={up || undefined}
             data-at-interactive
             style={{ left: rect.left, top, width: w, height: hgt }}
@@ -214,9 +218,7 @@ export function Select<V extends string>({ options, value, onChange, width, list
                   >
                     <span className="at-select-check" aria-hidden>
                       {i === selIdx && (
-                        <svg width="10" height="10" viewBox="0 0 10 10">
-                          <path d="M2 5.2 4.1 7.2 8 2.8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <IconCheck size={12} />
                       )}
                     </span>
                     <span className="at-select-option-label">{opt.label}</span>

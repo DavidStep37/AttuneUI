@@ -8,6 +8,9 @@ import { Slider } from "../components/Slider";
 import { SwitchField } from "../components/Switch";
 import { Timeline, type TimelineItem } from "../components/Timeline";
 import { ValueRoll } from "../components/ValueRoll";
+import { Checkbox } from "../components/Checkbox";
+import { Alert, Message, Toast, type DismissReason } from "../components/Feedback";
+import { Tabs } from "../components/Tabs";
 import type { ComponentId } from "../core/schema";
 import { IconCopy, IconMinus, IconPlay, IconPlus, IconReset } from "./icons";
 import { useDemo } from "./store";
@@ -230,6 +233,54 @@ function SelectDemo({ variant }: { variant: Variant }) {
   );
 }
 
+function CheckboxDemo({ variant }: { variant: Variant }) {
+  const [choices, setChoices] = useDemo<boolean[]>("checkbox.choices", [true, false]);
+  const all = choices.every(Boolean), some = choices.some(Boolean);
+  return <div className="pg-rows" data-variant={variant}>
+    <Checkbox checked={all} indeterminate={some && !all} onChange={checked => setChoices([checked, checked])}>全部效果</Checkbox>
+    <div className="pg-checkbox-children">
+      {['淡入淡出', '弹性缩放'].map((label, i) => <Checkbox key={label} checked={choices[i]}
+        onChange={checked => setChoices(prev => prev.map((value, index) => index === i ? checked : value))}>{label}</Checkbox>)}
+    </div>
+    {variant === "stage" && <Checkbox checked disabled onChange={() => {}} description="不可操作的状态保留清晰的选中提示">禁用选项</Checkbox>}
+  </div>;
+}
+
+function FeedbackDemo({ variant }: { variant: Variant }) {
+  const [alert, setAlert] = useState(true);
+  const [message, setMessage] = useState(false);
+  const [toast, setToast] = useState(false);
+  const [last, setLast] = useState<string>("提示会在悬停或聚焦时暂停倒计时");
+  const dismissed = (set: (open: boolean) => void) => (reason: DismissReason) => {
+    set(false); setLast(reason === "manual" ? "手动关闭 · 放大并模糊消散" : "自动关闭 · 保持尺寸，模糊消散");
+  };
+  return <div className="pg-rows pg-feedback-demo" data-variant={variant}>
+    <div className="pg-inline">
+      <Button size="sm" onClick={() => setAlert(true)}>Alert</Button>
+      <Button size="sm" onClick={() => setMessage(true)} disabled={message}>Message</Button>
+      <Button size="sm" variant="primary" onClick={() => setToast(true)} disabled={toast}>Toast</Button>
+    </div>
+    <div className="pg-feedback-slot">
+      <Alert open={alert} onDismiss={dismissed(setAlert)} title="更改已保存" tone="success">可以继续调整，预览会同步更新。</Alert>
+      <Message open={message} onDismiss={dismissed(setMessage)} tone="success">预览已更新</Message>
+    </div>
+    <Toast open={toast} onDismiss={dismissed(setToast)} tone="success">设置已同步，可以继续创作</Toast>
+    <div className="pg-meta">{last}</div>
+  </div>;
+}
+
+function TabsDemo({ variant }: { variant: Variant }) {
+  const [tab, setTab] = useDemo("tabs.active", "overview");
+  return <div className="pg-rows pg-tabs-demo" data-variant={variant}>
+    <Tabs aria-label="项目设置" value={tab} onChange={setTab} items={[
+      { value: "overview", label: "概览", content: <div className="pg-tab-copy"><strong>让操作自然发生</strong><p>圆润轮廓、清晰层次，和一点恰到好处的弹性。</p><span>11 组组件 · 蓝调石墨灰</span></div> },
+      { value: "motion", label: "动效", content: <div className="pg-tab-copy"><strong>从当前状态继续</strong><p>切换标签时指示条平滑跟随，内容轻轻交接。</p><span>支持方向键、Home / End</span></div> },
+      { value: "details", label: "细节", content: <div className="pg-tab-copy"><strong>留一点呼吸空间</strong><p>安全留白和统一边框，让精细操作更从容。</p><span>浅色 / 深色 · 减弱动效</span></div> },
+      ...(variant === "stage" ? [{ value: "disabled", label: "未开放", content: null, disabled: true }] : []),
+    ]} />
+  </div>;
+}
+
 export const demos: Record<ComponentId, (p: { variant: Variant }) => ReactNode> = {
   slider: SliderDemo,
   input: InputDemo,
@@ -239,18 +290,22 @@ export const demos: Record<ComponentId, (p: { variant: Variant }) => ReactNode> 
   switch: SwitchDemo,
   segmented: SegmentedDemo,
   select: SelectDemo,
+  checkbox: CheckboxDemo,
+  feedback: FeedbackDemo,
+  tabs: TabsDemo,
 };
 
 export const hints: Record<ComponentId, string[]> = {
   slider: [
-    "hover 手柄：轨道被撑开，向两侧自然过渡，两端略微变矮",
-    "拖动：鼓包随手柄移动，原位置逐渐复原；停下后只要指针还在手柄上，鼓包就保留",
-    "拖到端点后继续拖：手柄和轨道一起向该方向被拉长，四周留白保持一致",
+    "hover 空白轨道：仅底色变化；靠近手柄时白点放大、内外轨道鼓起，两端等量收窄",
+    "拖动：两端等量收窄，中段轻微内凹后回升接上圆头；粗细不随方向变化，离开后复原",
+    "拖到端点后继续拖：白色胶囊手柄横向拉长，鼓包贴合包裹，整条轨道收细；松手一起回弹",
     "点击轨道：手柄滑过去，数值同步滚动",
     "拖动左侧标签也能调值；方向键调整，Shift 加大步长",
   ],
   input: [
-    "点击数字：外框像泡泡一样被吹开，带轻微回弹，数字本身不动",
+    "悬停数字：下划线两端延伸、转弯上行，再在顶部汇合，描出较小的圆角外框",
+    "点击立即聚焦编辑，描边闭合后再平滑放大；数字位置不变，单位同步右移；失焦后缩回，移出后收回下划线",
     "拖动左侧标签调整数值（Shift ×10，Alt ×0.1）",
     "聚焦后 ↑ ↓ 按步长调整，Shift 加大步长",
     "Enter 确认，Esc 取消；数值变大向上滚，变小向下滚",
@@ -279,8 +334,9 @@ export const hints: Record<ComponentId, string[]> = {
     "开启后，关联的设置区域连续展开；关闭时更快收起",
   ],
   segmented: [
+    "hover：选项上下轻微鼓起，文字保持原位；点击后鼓包短暂残留，再柔和回落",
     "切换：选中底色像液体一样流过去，前沿先到，后沿跟上",
-    "距离越远，中间的细颈越明显，到达后收拢",
+    "滑动时选中底撑满内侧高度，沿鼓包轮廓贴合，保留固定留白",
     "连续点击或反向切换：从当前状态继续，不会重新开始",
     "← → 键切换选项",
   ],
@@ -290,4 +346,7 @@ export const hints: Record<ComponentId, string[]> = {
     "展开途中再次点击，立即反向收回",
     "↑ ↓ 移动，Enter 选择，Esc 关闭",
   ],
+  checkbox: ["悬停轻轻放大，按下收缩，选中标记带回弹出现", "支持未选、选中、半选和禁用状态；Space 切换", "全部效果与子项联动，部分选中时显示短横线"],
+  feedback: ["入场：从下方可调距离向上弹出，透明度逐渐增加", "点击关闭：气泡放大、模糊并消散；自动关闭只模糊淡出", "Alert 常驻；Message 在当前位置出现；Toast 浮在页面上方", "悬停或键盘聚焦暂停自动关闭；支持减弱动效"],
+  tabs: ["点击或方向键切换，底部指示条连续跟随", "内容轻微位移并淡入淡出，Home / End 跳到首尾标签", "禁用项跳过，Tab 键进入当前内容面板"],
 };

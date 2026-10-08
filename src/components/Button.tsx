@@ -4,10 +4,11 @@ import { useFeel } from "../core/feel";
 import { clamp } from "../core/geometry";
 import { useAnimated } from "../core/hooks";
 import type { ResolvedFeel } from "../core/schema";
+import type { ControlSize } from "../tokens/tokens";
 
 export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onAnimationStart" | "onDrag" | "onDragStart" | "onDragEnd"> & {
   variant?: "primary" | "secondary" | "ghost";
-  size?: "sm" | "md";
+  size?: ControlSize;
   icon?: ReactNode;
   iconOnly?: boolean;
   feel?: Partial<ResolvedFeel<"button">>;
@@ -84,6 +85,7 @@ export function Button({
       className={`at-btn ${className ?? ""}`}
       data-variant={variant}
       data-size={size}
+      data-control-size={size}
       data-icon-only={iconOnly || undefined}
       data-at-interactive
       disabled={disabled}

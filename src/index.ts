@@ -11,4 +11,7 @@ export { Select } from "./components/Select";
 export { Timeline, type TimelineItem } from "./components/Timeline";
 export { BezierEditor, BezierField, bezierPresets, formatBezier, type Bezier } from "./components/BezierEditor";
 export { ValueRoll } from "./components/ValueRoll";
+export { Checkbox, type CheckboxProps } from "./components/Checkbox";
+export { Alert, Message, Toast, type FeedbackProps, type DismissReason } from "./components/Feedback";
+export { Tabs, type TabsProps, type TabItem } from "./components/Tabs";
 export { Panel, PanelGroup, Row, SliderField, NumberField, SpringField, ParamControls } from "./components/Panel";

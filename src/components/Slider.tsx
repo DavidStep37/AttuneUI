@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { motion, useAnimationFrame, useMotionValue, useTransform } from "motion/react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { motion, useAnimationFrame, useMotionValue, useMotionValueEvent, useTransform } from "motion/react";
 import { useFeel } from "../core/feel";
-import { clamp, roundTo, rubber, softTrack } from "../core/geometry";
+import { clamp, snapSliderValue, rubber, nestedSlider, SLIDER_DOT, SLIDER_INNER_HALF } from "../core/geometry";
 import { isKeyboardModality, useAnimated, useLatest, useSize } from "../core/hooks";
 import type { ResolvedFeel } from "../core/schema";
+import { controlHeight, type ControlSize } from "../tokens/tokens";
 
-export const SLIDER_THUMB = { w: 10, h: 14 };
-const HEIGHT = 28;
+export const SLIDER_THUMB = { w: SLIDER_DOT, h: SLIDER_DOT };
+const THUMB_HIT_RADIUS = 12;
 
 export type SliderProps = {
+  size?: ControlSize;
   value: number;
   onChange: (v: number) => void;
   onChangeEnd?: (v: number) => void;
@@ -27,6 +29,7 @@ export type SliderProps = {
  * operating object: thumb · responding objects: track, ends, value readout
  */
 export function Slider({
+  size = "md",
   value,
   onChange,
   onChangeEnd,
@@ -38,13 +41,11 @@ export function Slider({
   feel: local,
   ...aria
 }: SliderProps) {
+  const HEIGHT = controlHeight(size);
   const { p, deform, t } = useFeel("slider", local);
   const [ref, { width: W }] = useSize<HTMLDivElement>();
-  const clipId = useId().replace(/:/g, "");
-
-  const pad = p.edgePadding;
-  const baseHalf = SLIDER_THUMB.h / 2 + pad;
-  const margin = pad + SLIDER_THUMB.w / 2;
+  const pad = Math.max(1, p.edgePadding);
+  const margin = Math.min(SLIDER_INNER_HALF + pad, W / 2);
   const span = Math.max(1, W - margin * 2);
 
   const toFrac = useCallback((v: number) => (max === min ? 0 : clamp((v - min) / (max - min), 0, 1)), [min, max]);
@@ -58,6 +59,7 @@ export function Slider({
   const drag = useRef({ grab: 0, startX: 0 });
   const [hoverTrack, setHoverTrack] = useState(false);
   const [hoverThumb, setHoverThumb] = useState(false);
+  const pointer = useRef<{ x: number; y: number } | null>(null);
   const [keyFocus, setKeyFocus] = useState(false);
   const [active, setActive] = useState(false);
   const onChangeRef = useLatest(onChange);
@@ -66,7 +68,7 @@ export function Slider({
   const emit = useCallback(
     (f: number) => {
       const g = geo.current;
-      const v = clamp(roundTo(g.min + f * (g.max - g.min), g.step), g.min, g.max);
+      const v = snapSliderValue(g.min + f * (g.max - g.min), g.min, g.max, g.step);
       if (v !== lastEmitted.current) {
         lastEmitted.current = v;
         onChangeRef.current(v);
@@ -103,66 +105,48 @@ export function Slider({
   }, [value, toFrac]);
 
   // hover / bulge amount
-  const bulging = hoverThumb || active || keyFocus;
+  const bulging = !disabled && (hoverThumb || active || keyFocus);
   useEffect(() => {
     hover.to(bulging ? 1 : 0, bulging ? t(p.thumbSpring) : t(p.recover));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bulging]);
+  }, [bulging, deform, p.thumbSpring, p.recover, t]);
 
   const shape = useTransform(
     [frac.mv, hover.mv, stretchL.mv, stretchR.mv, vel] as const,
     ([f, h, sl, sr, v]: number[]) => {
       if (W <= 0) return null;
-      const sc = 1 + (p.thumbHoverScale - 1) * h * Math.min(1, deform);
-      const cx = margin + f * span;
-      // past an extreme the thumb itself stretches toward the pull (体积守恒: a little thinner)
-      const w0 = SLIDER_THUMB.w * sc;
-      const stretch = sl + sr;
-      const tw = w0 + stretch;
-      const th = SLIDER_THUMB.h * sc * (1 - 0.3 * p.endShrink * Math.min(1, stretch / (w0 * 2)));
-      const tx0 = cx - w0 / 2 - sl;
-      const tx1 = cx + w0 / 2 + sr;
-      const tc = (tx0 + tx1) / 2;
-      const speed = Math.min(1, Math.abs(v) / 1500);
-      const sigma = p.bulgeWidth * SLIDER_THUMB.w * 0.4;
-      const trail = p.trail * speed * deform;
-      const behind = sigma * (1 + trail * 2);
-      const front = sigma * (1 - trail * 0.3);
-      const bumpHalf = (p.bulgeHeight / 2) * h * deform;
-      const res = softTrack({
-        left: 0,
-        right: W,
-        cy: HEIGHT / 2,
-        baseHalf,
-        thumbX0: tx0,
-        thumbX1: tx1,
-        thumbHalfH: th / 2,
-        thumbR: w0 / 2,
-        bumpCx: tc,
-        bumpHalf,
-        sigmaL: v > 0 ? behind : front,
-        sigmaR: v > 0 ? front : behind,
-        shrinkHalf: bumpHalf * p.endShrink,
-        thin: 1 - Math.min(0.2, (stretch / Math.max(1, W)) * 1.2),
+      return nestedSlider({
+        width: W, progress: f, focus: h, deform, velocity: v, gap: pad,
+        thumbHoverScale: p.thumbHoverScale, bulgeHeight: p.bulgeHeight,
+        bulgeWidth: p.bulgeWidth, endInset: p.endInset,
+        neckDepth: p.neckDepth, trail: p.trail,
+        stretchL: sl, stretchR: sr,
       });
-      // fill: empty at min, full at max, through the thumb centre in between
-      const fillEnd = tc + (2 * f - 1) * (tw / 2 + res.clearance);
-      return { d: res.d, x0: res.x0, fillEnd, tx0, tw, th, r: w0 / 2 };
     },
   );
-  const d = useTransform(shape, (s) => s?.d ?? "");
-  const fillX = useTransform(shape, (s) => (s ? s.x0 - 1 : 0));
-  const fillW = useTransform(shape, (s) => (s ? Math.max(0, s.fillEnd - s.x0 + 1) : 0));
-  const thumbX = useTransform(shape, (s) => s?.tx0 ?? 0);
-  const thumbY = useTransform(shape, (s) => (s ? (HEIGHT - s.th) / 2 : (HEIGHT - SLIDER_THUMB.h) / 2));
-  const thumbW = useTransform(shape, (s) => s?.tw ?? SLIDER_THUMB.w);
-  const thumbH = useTransform(shape, (s) => s?.th ?? SLIDER_THUMB.h);
-  const thumbR = useTransform(shape, (s) => s?.r ?? SLIDER_THUMB.w / 2);
+  const d = useTransform(shape, (s) => s?.outerPath ?? "");
+  const fillD = useTransform(shape, (s) => s?.fillPath ?? "");
+  const thumbX = useTransform(shape, (s) => s ? s.cx - s.thumbW / 2 : 0);
+  const thumbY = useTransform(shape, (s) => (HEIGHT - (s?.thumbH ?? SLIDER_DOT)) / 2);
+  const thumbW = useTransform(shape, (s) => s?.thumbW ?? SLIDER_DOT);
+  const thumbH = useTransform(shape, (s) => s?.thumbH ?? SLIDER_DOT);
+  const thumbR = useTransform(thumbH, h => h / 2);
 
   /* ---------------------------------------------------------- pointer */
 
   const localX = (e: PointerEvent) => e.clientX - (ref.current?.getBoundingClientRect().left ?? 0);
   const thumbCx = () => margin + frac.mv.get() * span;
+  const nearThumb = (x: number, y: number) => Math.hypot(x - thumbCx(), y - HEIGHT / 2) <= THUMB_HIT_RADIUS;
+  const updatePointer = (e: PointerEvent<HTMLDivElement>) => {
+    const rect = ref.current?.getBoundingClientRect();
+    pointer.current = rect && e.pointerType !== "touch" ? { x: e.clientX - rect.left, y: e.clientY - rect.top } : null;
+    const point = pointer.current;
+    setHoverThumb(!!point && nearThumb(point.x, point.y));
+  };
+  // Track clicks/external updates can move the handle under a stationary cursor.
+  useMotionValueEvent(frac.mv, "change", () => {
+    const point = pointer.current;
+    if (point) setHoverThumb(nearThumb(point.x, point.y));
+  });
 
   const dragTo = (x: number) => {
     const raw = x - drag.current.grab;
@@ -184,25 +168,27 @@ export function Slider({
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const x = localX(e);
     const cx = thumbCx();
+    updatePointer(e);
     setActive(true);
+    setKeyFocus(false);
     ref.current?.querySelector<HTMLElement>(".at-slider-thumb")?.focus({ preventScroll: true });
-    if (Math.abs(x - cx) <= SLIDER_THUMB.w / 2 + 5) {
+    const y = e.clientY - (ref.current?.getBoundingClientRect().top ?? 0);
+    if (nearThumb(x, y)) {
       mode.current = "drag";
       drag.current = { grab: x - cx, startX: x };
     } else {
       mode.current = "press";
       drag.current = { grab: 0, startX: x };
       const f = clamp((x - margin) / span, 0, 1);
-      frac.to(f, t(p.thumbSpring), (v) => emit(v));
+      emit(f);
+      frac.to(toFrac(lastEmitted.current), t(p.thumbSpring));
     }
   };
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    updatePointer(e);
     const x = localX(e);
-    if (!mode.current) {
-      setHoverThumb(Math.abs(x - thumbCx()) <= SLIDER_THUMB.w / 2 + 4);
-      return;
-    }
+    if (!mode.current) return;
     if (mode.current === "press" && Math.abs(x - drag.current.startX) > 3) {
       frac.stop();
       mode.current = "drag";
@@ -221,8 +207,11 @@ export function Slider({
     const v = wasDrag ? emit(frac.mv.get()) : lastEmitted.current;
     // settle onto the stepped position (吸附与归位)
     if (wasDrag) frac.to(toFrac(v), t(p.thumbSpring));
-    const x = localX(e);
-    setHoverThumb(Math.abs(x - margin - toFrac(v) * span) <= SLIDER_THUMB.w / 2 + 4 && e.type !== "pointercancel");
+    if (e.type === "pointercancel" || e.type === "lostpointercapture" || e.pointerType === "touch") {
+      pointer.current = null;
+      setHoverTrack(false);
+      setHoverThumb(false);
+    } else updatePointer(e);
     onChangeEnd?.(v);
   };
 
@@ -242,7 +231,7 @@ export function Slider({
     if (next === null) return;
     e.preventDefault();
     const dir = Math.sign(next - cur);
-    const v = clamp(roundTo(next, step), min, max);
+    const v = snapSliderValue(next, min, max, step);
     if (v === cur && dir !== 0) {
       // pressing past the extreme → short stretch pulse (边界阻力)
       const target = dir < 0 ? stretchL : stretchR;
@@ -260,6 +249,7 @@ export function Slider({
     <div
       ref={ref}
       className={`at-slider ${className ?? ""}`}
+      data-control-size={size}
       data-at-interactive
       data-hover={hoverTrack || undefined}
       data-active={active || undefined}
@@ -269,21 +259,21 @@ export function Slider({
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      onPointerEnter={() => setHoverTrack(true)}
+      onLostPointerCapture={endDrag}
+      onPointerEnter={(e) => {
+        setHoverTrack(e.pointerType !== "touch");
+        updatePointer(e);
+      }}
       onPointerLeave={() => {
+        pointer.current = null;
         setHoverTrack(false);
-        if (!mode.current) setHoverThumb(false);
+        setHoverThumb(false);
       }}
     >
       <svg className="at-slider-svg" width={Math.max(W, 1)} height={HEIGHT} aria-hidden>
-        <defs>
-          <clipPath id={clipId}>
-            <motion.path d={d} />
-          </clipPath>
-        </defs>
+        <g transform={`translate(0 ${(HEIGHT - 28) / 2})`}>
         <motion.path className="at-slider-track" d={d} />
-        <g clipPath={`url(#${clipId})`}>
-          <motion.rect className="at-slider-fill" x={fillX} y={0} width={fillW} height={HEIGHT} />
+        <motion.path className="at-slider-fill" d={fillD} />
         </g>
       </svg>
       <motion.div

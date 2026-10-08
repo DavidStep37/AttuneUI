@@ -4,12 +4,12 @@ import { Button } from "../components/Button";
 import { PanelGroup, ParamControls } from "../components/Panel";
 import { resolveComponent, resolveDefault, springTransition, useFeelState } from "../core/feel";
 import { componentMeta, componentSchemas, sharedSchema, springSchema, type ComponentId, type ParamDef, type ParamValue } from "../core/schema";
-import { feel as feelTokens, spring as springTokens, type SharedFeel, type SpringName } from "../tokens/tokens";
+import { type SharedFeel, type SpringName } from "../tokens/tokens";
 import { demos, hints } from "./demos";
 import { IconCheck, IconClose, IconCopy, IconExpand, IconReset } from "./icons";
 import { useStore } from "./store";
 
-export const ORDER: ComponentId[] = ["slider", "input", "button", "timeline", "bezier", "switch", "segmented", "select"];
+export const ORDER: ComponentId[] = ["slider", "input", "button", "timeline", "bezier", "switch", "segmented", "select", "checkbox", "feedback", "tabs"];
 
 export function Gallery() {
   const [openId, setOpenId] = useState<ComponentId | null>(null);
@@ -65,7 +65,7 @@ function Card({ id, open, onOpen }: { id: ComponentId; open: boolean; onOpen: (e
   };
 
   return (
-    <div className="pg-card-slot" data-wide={id === "timeline" || undefined} data-open={open || undefined}>
+    <div className="pg-card-slot" data-component={id} data-wide={id === "timeline" || undefined} data-open={open || undefined}>
       <motion.article
         ref={ref}
         layoutId={`card-${id}`}
@@ -102,6 +102,7 @@ function ComponentModal({ id, onClose }: { id: ComponentId; onClose: () => void 
   const meta = componentMeta[id];
   const Demo = demos[id];
   const store = useStore();
+  const { shared: feelTokens, springs: springTokens } = store.baseline;
   const { feel } = store;
   const { springs, reduced } = useFeelState();
   const [copied, setCopied] = useState(false);
@@ -212,9 +213,10 @@ function ComponentModal({ id, onClose }: { id: ComponentId; onClose: () => void 
               onChange={(k, v) => store.setOverride(id, k, v)}
               onReset={(k) => store.resetOverride(id, k)}
             />
-            <PanelGroup title="共享参数" badge="影响全部组件" defaultOpen={false}>
-              <div className="pg-shared-note">这些参数被所有组件共同引用，修改会同时影响其他卡片。</div>
+            <PanelGroup title="共享参数" badge="跨组件默认值" defaultOpen={false}>
+              <div className="pg-shared-note">每项的作用对象见下方说明，修改会同步到对应组件。组件中已单独修改的对应参数不再跟随；重置该项即可恢复共享。</div>
               <ParamControls
+                showDescriptions
                 schema={sharedSchema}
                 values={feel.shared as unknown as Record<string, ParamValue>}
                 defaults={feelTokens as unknown as Record<string, ParamValue>}
@@ -222,6 +224,7 @@ function ComponentModal({ id, onClose }: { id: ComponentId; onClose: () => void 
                 onReset={(k) => store.resetSharedKey(k as keyof SharedFeel)}
               />
               <ParamControls
+                showDescriptions
                 schema={springSchema}
                 values={feel.springs as unknown as Record<string, ParamValue>}
                 defaults={springTokens as unknown as Record<string, ParamValue>}

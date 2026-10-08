@@ -1,5 +1,23 @@
 /* Playground page — uses the same tokens as the components */
 
+.pg-sizing { margin-top: 32px; scroll-margin-top: 76px; }
+.pg-sizing h2 { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+.pg-sizing > p { color: var(--at-color-text-secondary); line-height: 20px; margin: 0 0 16px; }
+.pg-size-example { padding: 16px; margin-top: 8px; border: 1px solid var(--at-color-border-subtle); border-radius: 12px; background: var(--at-color-surface-panel); }
+.pg-size-label { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.pg-size-label span { color: var(--at-color-text-tertiary); }
+.pg-size-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 0; }
+.pg-size-slider { flex: 1 1 160px; display: flex; min-width: 120px; }
+
+.pg-checkbox-children { display: flex; flex-direction: column; gap: 10px; padding-left: 14px; border-left: 1px solid var(--at-color-border-subtle); margin-left: 9px; }
+.pg-feedback-demo { gap: 12px; }
+.pg-feedback-slot { display: flex; flex-direction: column; gap: 10px; min-height: 76px; }
+.pg-card-slot[data-component="feedback"] { min-height: 330px; }
+.pg-tab-copy { min-height: 94px; }
+.pg-tab-copy strong { font-weight: 500; }
+.pg-tab-copy p { color: var(--at-color-text-secondary); line-height: 1.8; margin: 8px 0; }
+.pg-tab-copy > span { font-size: 11px; color: var(--at-color-text-tertiary); }
+
 html,
 body {
   margin: 0;
@@ -192,13 +210,13 @@ button {
 .pg-rows {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--at-space-2);
   width: 100%;
   max-width: 340px;
 }
 .pg-rows[data-variant="stage"] {
   max-width: 460px;
-  gap: 10px;
+  gap: var(--at-space-2);
 }
 .pg-rows-narrow {
   max-width: 220px;
@@ -490,8 +508,32 @@ button {
   margin-left: 4px;
 }
 @media (max-width: 960px) {
+  .pg-header {
+    grid-template-columns: 1fr auto;
+    height: auto;
+    padding: var(--at-space-3) var(--at-space-4);
+    gap: var(--at-space-3);
+  }
+  .pg-header-tools {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .pg-tool {
+    white-space: nowrap;
+  }
+  .pg-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+  }
   .pg-sample {
     padding-right: 0;
+  }
+  .pg-sample-panel[data-floating] {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    max-height: none;
+    margin-top: var(--at-space-6);
   }
   .pg-sample-grid {
     grid-template-columns: repeat(2, 1fr);
