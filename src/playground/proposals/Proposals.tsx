@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MotionConfig, motion } from "motion/react";
 import { AttuneProvider } from "../../core/feel";
 import { useSize } from "../../core/hooks";
@@ -13,7 +13,11 @@ import { Sample } from "../Sample";
 import { Logo, IconReplay } from "../icons";
 import { DemoProvider, StoreProvider, usePlaygroundStore, type Theme } from "../store";
 import { directions, directionCSS, getDirection, type Direction } from "./directions";
+import { attachLiquidLens, attachSpecular } from "./liquidLens";
 import "./proposals.css";
+
+const FORMS: Record<number, string> = { 1: "ONE", 2: "TWO", 3: "THREE", 4: "FOUR", 5: "FIVE" };
+const FORMS_CN: Record<number, string> = { 1: "一", 2: "两", 3: "三", 4: "四", 5: "五" };
 
 export function Proposals() {
   const [direction, setDirection] = useState(() => getDirection(new URLSearchParams(location.search).get("proposal")));
@@ -38,10 +42,23 @@ function Study({ direction: d, onSelect }: { direction: Direction; onSelect: (d:
   const store = usePlaygroundStore(`attune-proposal-${d.id}-v1`, d.baseline, d.theme);
   const [view, setView] = useState<"components" | "sample">("components");
   const [exportStatus, setExportStatus] = useState("");
+  const shellRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     document.documentElement.dataset.proposal = d.id;
     return () => { delete document.documentElement.dataset.proposal; };
   }, [d.id]);
+  // Liquid Glass: edge refraction on hero glass and component cards, pointer-driven specular light.
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (d.id !== "liquid" || !shell || store.state.reduced) return;
+    const detachLens = attachLiquidLens(shell, [
+      { selector: ".study-object", options: { bezel: 26, scale: 58, blur: 1.5, saturate: 170 } },
+      { selector: ".pg-card", options: { bezel: 20, scale: 30, blur: 18, saturate: 180 } },
+      { selector: ".study-choice[aria-pressed='true']", options: { bezel: 12, scale: 14, blur: 14, saturate: 180 } },
+    ]);
+    const detachLight = attachSpecular(shell, ".pg-card, .study-object, .study-lab, .at-btn, .study-choice, .study-header");
+    return () => { detachLens(); detachLight(); };
+  }, [d.id, store.state.reduced]);
   const exportStudy = () => {
     const payload = { proposal: d.id, name: d.name, theme: store.state.theme, feel: store.feel, sources: d.sources };
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
@@ -51,7 +68,7 @@ function Study({ direction: d, onSelect }: { direction: Direction; onSelect: (d:
     setExportStatus("方案配置已导出");
   };
   return <StoreProvider store={store}><AttuneProvider value={store.feel}><MotionConfig reducedMotion={store.state.reduced ? "always" : "never"}>
-    <div className="study-shell">
+    <div className="study-shell" ref={shellRef}>
       <header className="study-header">
         <a className="study-brand" href="/" aria-label="Attune UI 原版"><Logo /><strong>attune<span> / explorations</span></strong></a>
         <span className="study-edition">DESIGN STUDIES — VOL. 01</span>
@@ -63,17 +80,17 @@ function Study({ direction: d, onSelect }: { direction: Direction; onSelect: (d:
       </header>
       <div className="study-layout">
         <aside className="study-sidebar">
-          <div className="study-nav-heading"><span>视觉提案</span><span>05</span></div>
+          <div className="study-nav-heading"><span>视觉提案</span><span>{String(directions.length).padStart(2, "0")}</span></div>
           <nav aria-label="样式提案">{directions.map((item) => <button key={item.id} className="study-choice" aria-pressed={item.id === d.id} onClick={() => onSelect(item)}>
             <span className={`study-mini mini-${item.id}`} aria-hidden="true"><i /><i /><i /><b /></span>
             <span className="study-choice-copy"><small>{item.number} / {item.en}</small><strong>{item.name}</strong></span>
             <span className="study-choice-arrow" aria-hidden="true"><IconExternal /></span>
           </button>)}</nav>
-          <div className="study-sidebar-note"><span className="study-dot" /> SAME SOUL, FIVE FORMS.<p>同一套交互逻辑，<br />五种不同的表达。</p><span>每套参数独立保存。</span></div>
+          <div className="study-sidebar-note"><span className="study-dot" /> SAME SOUL, {FORMS[directions.length] ?? directions.length} FORMS.<p>同一套交互逻辑，<br />{FORMS_CN[directions.length] ?? directions.length}种不同的表达。</p><span>每套参数独立保存。</span></div>
           <a className="study-research-link" href="#research">设计依据与参考 <IconDownRight /></a>
         </aside>
         <main className="study-main">
-          <div className="study-breadcrumb"><span>ATTUNE UI / MATERIAL EXPLORATIONS</span><span>PROPOSAL {d.number} — 05</span></div>
+          <div className="study-breadcrumb"><span>ATTUNE UI / MATERIAL EXPLORATIONS</span><span>PROPOSAL {d.number} — {String(directions.length).padStart(2, "0")}</span></div>
           <section className="study-intro" aria-labelledby="study-title">
             <div><div className="study-eyebrow">{d.en.toUpperCase()} <span>— {d.name}</span></div><h1 id="study-title">{d.title}</h1></div>
             <div className="study-intro-aside"><p className="study-subtitle">{d.subtitle}</p><p>{d.description}</p><div className="study-swatches" aria-label="提案色板">{[d.light[0], d.light[2], d.light[5], d.light[8], d.light[9]].map((c, i) => <span key={i} style={{ background: c }} title={c} />)}<small>{d.material}</small></div></div>
@@ -85,7 +102,7 @@ function Study({ direction: d, onSelect }: { direction: Direction; onSelect: (d:
             {view === "components" ? <Gallery /> : <Sample floating={false} />}
           </section>
           <section className="study-research" id="research">
-            <div className="study-research-title"><span className="study-eyebrow">DESIGN NOTES / 2026.10.04</span><h2>为什么是这个方向</h2><div className="study-tags">{d.tags.map((tag) => <span key={tag}>{tag}</span>)}</div></div>
+            <div className="study-research-title"><span className="study-eyebrow">DESIGN NOTES / {d.notesDate}</span><h2>为什么是这个方向</h2><div className="study-tags">{d.tags.map((tag) => <span key={tag}>{tag}</span>)}</div></div>
             <div className="study-research-copy"><p>{d.evidence}</p><dl><div><dt>适合场景</dt><dd>{d.bestFor}</dd></div><div><dt>手感基线</dt><dd>{d.motion}</dd></div><div><dt>设计取舍</dt><dd>{d.tradeoff}</dd></div></dl><div className="study-sources">{d.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer">{source.label}</a>)}</div></div>
           </section>
           <footer className="study-footer"><span>ATTUNE / {d.en.toUpperCase()}<small>让关联，随交互显现。</small></span><div><span role="status">{exportStatus}</span><Button onClick={store.resetAll}>重置本方案手感</Button><Button variant="primary" onClick={exportStudy}>导出方案配置 <IconExternal /></Button></div></footer>

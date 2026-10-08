@@ -36,7 +36,7 @@ try {
   await page.click('a[href="?proposal=glass"]');
   await page.waitForSelector(".study-lab");
   await pause();
-  const ids = ["glass", "paper", "graphite", "gummy", "brutal"];
+  const ids = ["glass", "liquid"];
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i];
     await page.click(`.study-choice:nth-child(${i + 1})`);
@@ -80,11 +80,10 @@ try {
     await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter"); await page.waitForSelector('[role="listbox"]', { hidden: true, timeout: 5000 });
     assert.equal(await page.$('[role="listbox"]'), null);
     // Both color modes, including portals, must stay usable.
-    const otherMode = id === "graphite" ? "浅色" : "深色";
-    await clickText('.study-tools [role="radio"]', otherMode); await pause();
-    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), id === "graphite" ? "light" : "dark");
+    await clickText('.study-tools [role="radio"]', "深色"); await pause();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark");
     await page.screenshot({ path: path.join(out, `${id}-alternate.png`), fullPage: true });
-    await clickText('.study-tools [role="radio"]', id === "graphite" ? "深色" : "浅色");
+    await clickText('.study-tools [role="radio"]', "浅色");
     // Reduced mode disables deformation across the shared provider.
     await page.click('[aria-label="减弱动效"]');
     assert.equal(await page.evaluate(() => document.documentElement.dataset.reducedMotion), "true");
@@ -96,10 +95,13 @@ try {
     console.log(`PASS ${id}: controls, modal, select, two themes, reduced motion, mobile`);
   }
   // History navigation and reload restore the selected proposal.
+  // Only two proposals are selectable now, so one step back lands on the other one.
   await page.goBack(); await pause();
-  assert.equal(await page.evaluate(() => document.documentElement.dataset.proposal), "gummy");
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.proposal), "glass");
+  await page.goForward(); await pause();
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.proposal), "liquid");
   await page.reload({ waitUntil: "networkidle0" });
-  assert.equal(await page.evaluate(() => document.documentElement.dataset.proposal), "gummy");
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.proposal), "liquid");
   await clickText('[aria-label="提案展示"] [role="radio"]', "动效样例");
   await page.waitForSelector(".pg-sample-panel"); await pause();
   assert.equal(await page.$$eval(".pg-mock", (els) => els.length), 6);
@@ -110,16 +112,16 @@ try {
   await clickText(".study-footer button", "重置本方案");
   await pause();
   assert.equal(await page.evaluate(() => localStorage.getItem("attune-proposal-glass-v1")), beforeReset, "Reset must not change another proposal");
-  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem("attune-proposal-gummy-v1")).overrides), {});
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem("attune-proposal-liquid-v1")).overrides), {});
   const cdp = await page.createCDPSession();
   await cdp.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: out });
   await clickText(".study-footer button", "导出方案");
   let exported;
   for (let i = 0; i < 30; i++) {
-    try { exported = JSON.parse(await readFile(path.join(out, "attune-gummy.json"), "utf8")); break; } catch { await pause(100); }
+    try { exported = JSON.parse(await readFile(path.join(out, "attune-liquid.json"), "utf8")); break; } catch { await pause(100); }
   }
-  assert.equal(exported?.proposal, "gummy");
-  assert.equal(exported?.feel.shared.deformScale, 1.25);
+  assert.equal(exported?.proposal, "liquid");
+  assert.equal(exported?.feel.shared.deformScale, 1.1);
   await page.goto(url, { waitUntil: "networkidle0" });
   const restored = await page.evaluate(() => ({ storage: localStorage.getItem("attune-playground-v1"), accent: getComputedStyle(document.documentElement).getPropertyValue("--at-color-accent-default").trim() }));
   assert.deepEqual(restored, original, "Proposal changes must not overwrite original settings");

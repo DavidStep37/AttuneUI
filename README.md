@@ -1,6 +1,6 @@
 # Attune UI
 
-个人组件库 Attune UI，附组件 Playground、动效调试样例和五套独立视觉提案。
+个人组件库 Attune UI，附组件 Playground、动效调试样例和两套独立视觉提案。
 
 **接手项目先读 [Handoff-20261008.md](Handoff-20261008.md)**：当前尺寸规则、组件交互、代码地图、运行验证和已知边界。`Handoff-20260930.md` 为早期设计背景，部分规则已被后续交互迭代替代。
 
@@ -15,7 +15,7 @@ npm run build      # 类型检查 + 生产构建
 - `http://localhost:5188/`：组件 Playground
 - `http://localhost:5188/#sample`：动效样例（卡片错落入场 + 调试面板）
 - `http://localhost:5188/#sizing`：三档尺寸的横排组合与动效对齐示例
-- `http://localhost:5188/?proposal=glass`：五个独立样式提案（冰蓝玻璃、纸感编辑、精密仪表、柔软糖果、大胆构造）；原版样式与参数保留。调研来源及设计取舍见 `docs/style-proposals-20261004.md`。
+- `http://localhost:5188/?proposal=glass`：两个视觉提案——冰蓝玻璃与液态玻璃（Apple Liquid Glass 的转译）；原版样式与参数保留。旧的五个提案调研见 `docs/style-proposals-20261004.md`（历史资料）。
 
 ## 目录
 

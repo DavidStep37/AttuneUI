@@ -1,13 +1,15 @@
 import { defaultFeelState, type FeelState } from "../../core/feel";
 import { color } from "../../tokens/tokens";
 
-export type DirectionId = "glass" | "paper" | "graphite" | "gummy" | "brutal";
+export type DirectionId = "glass" | "liquid";
 type Palette = [string, string, string, string, string, string, string, string, string, string];
 export type Direction = {
   id: DirectionId; number: string; name: string; en: string; title: string; subtitle: string;
   description: string; tags: string[]; material: string; motion: string; bestFor: string; tradeoff: string;
-  evidence: string; sources: { label: string; url: string }[];
+  evidence: string; sources: { label: string; url: string }[]; notesDate: string;
   light: Palette; dark: Palette; radius: number; theme: "light" | "dark"; baseline: FeelState;
+  /** Exact token overrides applied after the palette mapping (e.g. translucent glass surfaces). */
+  tokens?: { light?: Record<string, string>; dark?: Record<string, string> };
 };
 const baseline = (deform: number, passive: number, time: number, bounce: number): FeelState => ({
   ...defaultFeelState,
@@ -31,51 +33,29 @@ export const directions: Direction[] = [
     sources: [{ label: "Pinterest · Liquid Glass 灵感板 ↗", url: "https://mx.pinterest.com/robscan/liquid-glass/" }, { label: "Apple · Liquid Glass 设计发布 ↗", url: "https://www.apple.com/newsroom/2025/06/apple-introduces-a-delightful-and-elegant-new-software-design/" }, report],
     light: ["#e8f1f8", "#f8fbffe0", "#e2ebf4", "#ffffff", "#bbd0e3", "#172e49", "#506881", "#5b7390", "#2467b8", "#d6e8ff"],
     dark: ["#0d1b2b", "#162d43eb", "#102438", "#24425c", "#35536b", "#edf6ff", "#b1c8dc", "#93adc5", "#88c3ff", "#254b70"],
+    notesDate: "2026.10.04",
     radius: 20, theme: "light", baseline: baseline(1.05, 0.35, 0.27, 0.2),
   },
   {
-    id: "paper", number: "02", name: "纸感编辑", en: "Folio", title: "A quieter kind\nof expression.", subtitle: "把复杂交互，编排得从容。",
-    description: "暖白纸面、墨色细线与编辑式排版。放大信息层级，收敛装饰，让精确操作具有安静的秩序。",
-    tags: ["EDITORIAL", "WARM MINIMAL", "纸面秩序"], material: "暖纸白 / 墨绿 / 衬线标题",
-    motion: "从容收敛 · 240 ms · 回弹 0.10", bestFor: "内容编辑、知识工具、长期使用的工作台", tradeoff: "衬线只用于标题；数值和控件保留清晰的无衬线字。形变克制但仍可感知。",
-    evidence: "Pinterest 可见编辑式网页排版的持续收藏；Pinterest Poetcore 提供纸感与文学气质的跨领域线索。不能据此断言它是新的 UI 爆款。",
-    sources: [{ label: "Pinterest · Editorial / Web Design ↗", url: "https://uk.pinterest.com/jscreativeldn/aiimi-20256/" }, report],
-    light: ["#f3f0e8", "#faf8f1", "#e9e5d9", "#fffdf7", "#c8c5b7", "#2a302b", "#62675c", "#717467", "#49634b", "#dfe6d9"],
-    dark: ["#20221e", "#292c25", "#1c1f1a", "#363b31", "#505848", "#eeeade", "#bebfad", "#a2a792", "#bbcf9b", "#3c4930"],
-    radius: 3, theme: "light", baseline: baseline(0.7, 0.3, 0.24, 0.1),
-  },
-  {
-    id: "graphite", number: "03", name: "精密仪表", en: "Signal", title: "Precision,\nwith a pulse.", subtitle: "安静待命，准确响应。",
-    description: "石墨灰工作台、网格刻度与荧光绿状态点。把组件当作精密仪器，每一次反馈都对应明确的状态。",
-    tags: ["DARK UTILITY", "INSTRUMENT", "高密度工具"], material: "石墨黑 / 信号绿 / 技术刻度",
-    motion: "迅速到位 · 180 ms · 回弹 0.08", bestFor: "开发工具、数据工作台、专业动效编辑器", tradeoff: "荧光色集中在操作对象和状态；避免大面积发光干扰读数。",
-    evidence: "深色工具 UI 是持续发展的成熟方向。Pinterest 仪表盘案例与 Linear 的一手改版记录支持层次、密度和导航的设计思路，未获得实时热度数据。",
-    sources: [{ label: "Pinterest · Dark Dashboard ↗", url: "https://in.pinterest.com/pin/391883605091911909/" }, { label: "Linear · UI redesign ↗", url: "https://linear.app/now/how-we-redesigned-the-linear-ui" }],
-    light: ["#e9edeb", "#f7faf8", "#dde5e0", "#ffffff", "#bdc9c0", "#18251d", "#506458", "#617568", "#267445", "#cee9d7"],
-    dark: ["#111513", "#1a211d", "#111914", "#26322b", "#35483b", "#e6efe7", "#a6b7aa", "#8c9f91", "#c1ed83", "#30472b"],
-    radius: 6, theme: "dark", baseline: baseline(0.75, 0.25, 0.18, 0.08),
-  },
-  {
-    id: "gummy", number: "04", name: "柔软糖果", en: "Mochi", title: "A little more\nroom to play.", subtitle: "让手感，变得可见。",
-    description: "奶油底色、莓果色操作点与圆润的软表面。让挤压、张力和复原更容易被感知，也更值得把玩。",
-    tags: ["GIMME GUMMY", "SOFT TACTILE", "柔软形变"], material: "奶油白 / 莓果粉 / 软圆角",
-    motion: "柔软回弹 · 300 ms · 回弹 0.28", bestFor: "创意工具、轻量编辑器、交互教学与原型", tradeoff: "只让容器和背景变形；文字与读数保持稳定，避免柔软材质损害可读性。",
-    evidence: "Pinterest Predicts 2026 的 Gimme Gummy 指向弹性与触感，属于跨领域趋势；与已有 Claymorphism 灵感结合，转译成可交互的软表面。",
-    sources: [report, { label: "Pinterest · Claymorphism UI ↗", url: "https://www.pinterest.com/pin/claymorphism-in-ui-design--1047720300820638562/" }],
-    light: ["#f9efe9", "#fff9f4", "#f1e1dc", "#fffcf8", "#dbc1b8", "#503537", "#80605d", "#896b65", "#ba4e6a", "#f8dce3"],
-    dark: ["#291d24", "#372630", "#291b24", "#4b3441", "#694957", "#fff0ec", "#d9b4be", "#c59aa8", "#f6a3b9", "#653a4e"],
-    radius: 28, theme: "light", baseline: baseline(1.25, 0.42, 0.3, 0.28),
-  },
-  {
-    id: "brutal", number: "05", name: "大胆构造", en: "Offset", title: "Make your\nmove.", subtitle: "有力量的边界，有弹性的回应。",
-    description: "柠檬黄、大字重、明确边框和偏移阴影。用直接的视觉结构表达可操作性，让每次按压都有落点。",
-    tags: ["NEOBRUTALISM", "BOLD TYPE", "明确边界"], material: "柠檬黄 / 墨黑 / 硬边投影",
-    motion: "干脆有力 · 200 ms · 回弹 0.15", bestFor: "独立产品、实验性创作工具、品牌鲜明的面板", tradeoff: "强对比主要用于分区和主操作。软轨道仍保留连续形变，避免反馈变成生硬跳变。",
-    evidence: "Pinterest 有持续的新粗野主义 UI 收藏，2026 年也出现了可用的仪表盘模板。它是延续并产品化的方向，不能等同于刚出现的新趋势。",
-    sources: [{ label: "Pinterest · Neo-brutalism UI ↗", url: "https://www.pinterest.com/mtcdlmt/neo-brutalism-ui-design/" }, { label: "BrutAdmin · 2026 dashboard ↗", url: "https://neobrutalism.com/templates/brutadmin" }],
-    light: ["#f2f0e7", "#fffef8", "#e7e5da", "#ffffff", "#272820", "#25261f", "#56574c", "#656659", "#565d0a", "#eaf589"],
-    dark: ["#191b14", "#25291c", "#14180e", "#363e27", "#899563", "#f4f5df", "#c5cbae", "#adb797", "#d5ed59", "#485320"],
-    radius: 0, theme: "light", baseline: baseline(0.95, 0.35, 0.2, 0.15),
+    id: "liquid", number: "02", name: "液态玻璃", en: "Liquid", title: "Light, in flow.", subtitle: "光线流过，界面随之回应。",
+    description: "参考 Apple Liquid Glass：控件像一层会折射的玻璃，浮在鲜明的内容之上。边缘弯折背后的画面，高光跟随指针移动，按压时从内部亮起。",
+    tags: ["APPLE LIQUID GLASS", "LENSING", "SPECULAR", "胶囊与同心圆角"], material: "透明玻璃 / 边缘折射 / 镜面高光 / 胶囊",
+    motion: "流体回弹 · 300 ms · 回弹 0.24", bestFor: "浮动控制层、媒体与创作工具、需要突出内容本身的界面",
+    tradeoff: "折射只用于边缘，读数区保留足够的磨砂底色以保证对比度。边缘折射依赖 Chromium 的 backdrop-filter SVG 滤镜，其他浏览器退化为磨砂玻璃；尊重“减少透明度”。",
+    evidence: "Apple 在 2025 年 6 月发布 Liquid Glass，并在 WWDC25 和人机界面指南中说明其特征：实时折射背后内容、镜面高光随光线与运动变化、根据内容自适应明暗，以及胶囊与同心圆角的形状体系。这里是面向 Web 工具的转译，不是 Apple 材质的复刻。",
+    sources: [
+      { label: "Apple · Liquid Glass 设计发布 ↗", url: "https://www.apple.com/newsroom/2025/06/apple-introduces-a-delightful-and-elegant-new-software-design/" },
+      { label: "WWDC25 · Meet Liquid Glass ↗", url: "https://developer.apple.com/videos/play/wwdc2025/219/" },
+      { label: "Apple HIG · Materials ↗", url: "https://developer.apple.com/design/human-interface-guidelines/materials" },
+    ],
+    notesDate: "2026.10.08",
+    light: ["#e8ecf4", "rgba(255,255,255,0.48)", "rgba(255,255,255,0.34)", "rgba(255,255,255,0.72)", "rgba(255,255,255,0.7)", "#0b0f19", "#353c4c", "#545c6d", "#0a7cff", "rgba(10,124,255,0.14)"],
+    dark: ["#05070d", "rgba(36,40,52,0.46)", "rgba(255,255,255,0.09)", "rgba(255,255,255,0.16)", "rgba(255,255,255,0.2)", "#f5f7fb", "#c9cfdb", "#a2aaba", "#3b9bff", "rgba(59,155,255,0.24)"],
+    radius: 26, theme: "light", baseline: baseline(1.1, 0.4, 0.3, 0.24),
+    tokens: {
+      light: { "slider-fill": "#0a7cff", "surface-overlay": "rgba(214,222,240,0.32)", "border-subtle": "rgba(255,255,255,0.55)", "border-strong": "rgba(11,15,25,0.28)", "shadow-color": "rgba(24,32,72,0.14)", "shadow-color-soft": "rgba(24,32,72,0.08)", "highlight-line": "rgba(255,255,255,0.95)" },
+      dark: { "slider-fill": "#3b9bff", "fill-primary": "#1f7ae0", "fill-primary-hover": "#2a86ee", "fill-primary-contrast": "#ffffff", "accent-contrast": "#ffffff", "surface-overlay": "rgba(4,6,12,0.42)", "border-subtle": "rgba(255,255,255,0.14)", "border-strong": "rgba(255,255,255,0.4)", "shadow-color": "rgba(0,0,0,0.45)", "shadow-color-soft": "rgba(0,0,0,0.3)", "highlight-line": "rgba(255,255,255,0.28)" },
+    },
   },
 ];
 
@@ -93,10 +73,11 @@ function vars(d: Direction, dark: boolean) {
     "accent-contrast": dark ? canvas : "#ffffff", "control-thumb": dark ? primary : raised,
     "slider-fill": dark ? `color-mix(in srgb, ${accent} 60%, ${canvas})` : `color-mix(in srgb, ${accent} 40%, ${primary})`,
     "slider-thumb": "#ffffff",
-    "fill-primary": d.id === "brutal" ? "#dfef70" : accent,
-    "fill-primary-hover": d.id === "brutal" ? "#d0e44f" : `color-mix(in srgb, ${accent} 85%, ${primary})`,
-    "fill-primary-contrast": d.id === "brutal" ? "#20251a" : dark ? canvas : "#ffffff",
+    "fill-primary": accent,
+    "fill-primary-hover": `color-mix(in srgb, ${accent} 85%, ${primary})`,
+    "fill-primary-contrast": dark ? canvas : "#ffffff",
     "focus-ring": `color-mix(in srgb, ${accent} 65%, transparent)`,
+    ...(dark ? d.tokens?.dark : d.tokens?.light),
   };
   return Object.entries(c).map(([k, v]) => `--at-color-${k}:${v};`).join("") + `color-scheme:${dark ? "dark" : "light"};`;
 }

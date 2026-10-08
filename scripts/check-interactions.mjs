@@ -165,7 +165,7 @@ try {
   await page.mouse.up();
   console.log("PASS nested hover, bidirectional drag, overshoot, keyboard, underline Input, stronger Switch, range dash, Lucide");
 
-  for (const proposal of [null, "glass", "paper", "graphite", "gummy", "brutal"]) {
+  for (const proposal of [null, "glass", "liquid"]) {
     await page.goto(`${url}/${proposal ? `?proposal=${proposal}` : ""}`, { waitUntil: "networkidle0" });
     const themeSelector = proposal ? '[aria-label="提案主题"] [role="radio"]' : '[aria-label="主题"] [role="radio"]';
     for (const theme of ["浅色", "深色"]) {

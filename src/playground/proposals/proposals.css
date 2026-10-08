@@ -29,18 +29,6 @@
 .study-mini i { width: 12px; height: 22px; background: #f6fcff; border: 1px solid #aac3db; margin: -2px; border-radius: 4px; box-shadow: 0 2px 3px #264b6415; }
 .study-mini i:nth-child(2) { transform: translateY(-5px); z-index: 1; }
 .study-mini b { position: absolute; width: 22px; height: 3px; background: #5386b8; bottom: 5px; border-radius: 2px; }
-.mini-paper { background: #f3eedf; border-color: #c9c3b1; }
-.mini-paper i { background: #fcf8ed; border-color: #a9b2a0; border-radius: 0; }
-.mini-paper b { background: #587057; }
-.mini-graphite { background: #141e17; border-color: #35493a; }
-.mini-graphite i { background: #243a29; border-color: #5b765f; border-radius: 1px; }
-.mini-graphite b { background: #c1ed83; }
-.mini-gummy { background: #f3ddd8; border-color: #d7bcb6; }
-.mini-gummy i { background: #ffefeb; border-color: #f3d2ce; border-radius: 9px; box-shadow: 2px 3px 4px #99695d33; }
-.mini-gummy b { background: #c05b76; }
-.mini-brutal { background: #ecf391; border-color: #353829; border-radius: 0; }
-.mini-brutal i { background: #ffffef; border-color: #353829; border-radius: 0; box-shadow: 2px 2px #353829; }
-.mini-brutal b { background: #353829; }
 .study-sidebar-note { border-top: 1px solid var(--study-line); margin: 32px 4px 24px; padding-top: 24px; color: var(--study-quiet); }
 .study-sidebar-note > span { font-size: 8px; letter-spacing: .5px; }
 .study-sidebar-note p { font-size: 14px; line-height: 1.9; color: var(--at-color-text-primary); margin: 16px 0 8px; }
@@ -128,60 +116,179 @@
 [data-proposal="glass"] .at-select-pop { backdrop-filter: blur(18px); }
 [data-proposal="glass"] .at-btn-surface { box-shadow: inset 0 1px 0 #ffffff60, 0 3px 6px var(--at-color-shadow-color); }
 
-/* 02 / Folio — editorial hierarchy, quiet rules, ink-like controls. */
-[data-proposal="paper"] .study-intro h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 400; letter-spacing: -2.5px; font-style: italic; }
-[data-proposal="paper"] :is(.study-section-head h2, .study-research h2) { font-family: Georgia, "Songti SC", serif; }
-[data-proposal="paper"] .study-stage { background-image: repeating-linear-gradient(0deg, transparent 0 27px, var(--study-line) 27px 28px); }
-[data-proposal="paper"] .study-object { box-shadow: 3px 4px 0 var(--at-color-bg-canvas), 4px 5px 0 var(--at-color-border-default); }
-[data-proposal="paper"] .study-object strong { font-family: Georgia, serif; font-size: 19px; }
-[data-proposal="paper"] .study-lab { border-top: 2px solid var(--at-color-text-primary); }
-[data-proposal="paper"] .pg-card { box-shadow: none; border: 1px solid var(--at-color-border-default); }
-[data-proposal="paper"] .pg-card-head { border-bottom: 1px solid var(--study-line); padding-bottom: 12px; }
-[data-proposal="paper"] .study-choice { border-radius: 2px; }
-[data-proposal="paper"] .at-input-surface { box-shadow: inset 0 -1px 0 var(--at-color-border-strong); }
-[data-proposal="paper"] .at-slider-track { stroke-width: .7; }
+/* 02 / Liquid — Apple-style Liquid Glass: vivid content beneath, refracting rims,
+   pointer-driven specular light, capsules and concentric corners. Text sits on
+   a frosted "regular" layer; only hero objects use the "clear" variant. */
+:root[data-proposal="liquid"] {
+  --lg-tint: rgba(255, 255, 255, 0.42);
+  --lg-tint-clear: rgba(255, 255, 255, 0.16);
+  --lg-rim: rgba(255, 255, 255, 0.95);
+  --lg-rim-soft: rgba(255, 255, 255, 0.38);
+  --lg-edge: rgba(15, 23, 42, 0.07);
+  --lg-sheen: rgba(255, 255, 255, 0.55);
+  --lg-shadow: 0 10px 34px rgba(30, 38, 90, 0.13), 0 2px 6px rgba(30, 38, 90, 0.06);
+  --lg-blur: 22px;
+  --at-radius-control: 999px;
+  --lg-wallpaper:
+    radial-gradient(42% 52% at 12% 18%, #ffb38a 0%, transparent 70%),
+    radial-gradient(38% 46% at 86% 12%, #8fd3ff 0%, transparent 72%),
+    radial-gradient(46% 56% at 72% 78%, #b9a6ff 0%, transparent 70%),
+    radial-gradient(40% 50% at 24% 88%, #ff9fc6 0%, transparent 72%),
+    radial-gradient(30% 40% at 50% 46%, #9ff2dc 0%, transparent 70%),
+    linear-gradient(160deg, #eef1f8, #e4e8f3);
+}
+:root[data-proposal="liquid"][data-theme="dark"] {
+  --lg-tint: rgba(30, 34, 46, 0.46);
+  --lg-tint-clear: rgba(255, 255, 255, 0.07);
+  --lg-rim: rgba(255, 255, 255, 0.34);
+  --lg-rim-soft: rgba(255, 255, 255, 0.1);
+  --lg-edge: rgba(0, 0, 0, 0.3);
+  --lg-sheen: rgba(255, 255, 255, 0.16);
+  --lg-shadow: 0 12px 38px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --lg-wallpaper:
+    radial-gradient(42% 52% at 12% 18%, #8a3b2a 0%, transparent 70%),
+    radial-gradient(38% 46% at 86% 12%, #1d4f8a 0%, transparent 72%),
+    radial-gradient(46% 56% at 72% 78%, #4a2f9a 0%, transparent 70%),
+    radial-gradient(40% 50% at 24% 88%, #7a2554 0%, transparent 72%),
+    radial-gradient(30% 40% at 50% 46%, #145c55 0%, transparent 70%),
+    linear-gradient(160deg, #080a12, #0b0d18);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-proposal="liquid"]:not([data-theme="light"]) {
+    --lg-tint: rgba(30, 34, 46, 0.46);
+    --lg-tint-clear: rgba(255, 255, 255, 0.07);
+    --lg-rim: rgba(255, 255, 255, 0.34);
+    --lg-rim-soft: rgba(255, 255, 255, 0.1);
+    --lg-edge: rgba(0, 0, 0, 0.3);
+    --lg-sheen: rgba(255, 255, 255, 0.16);
+    --lg-shadow: 0 12px 38px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+    --lg-wallpaper:
+      radial-gradient(42% 52% at 12% 18%, #8a3b2a 0%, transparent 70%),
+      radial-gradient(38% 46% at 86% 12%, #1d4f8a 0%, transparent 72%),
+      radial-gradient(46% 56% at 72% 78%, #4a2f9a 0%, transparent 70%),
+      radial-gradient(40% 50% at 24% 88%, #7a2554 0%, transparent 72%),
+      radial-gradient(30% 40% at 50% 46%, #145c55 0%, transparent 70%),
+      linear-gradient(160deg, #080a12, #0b0d18);
+  }
+}
+[data-proposal="liquid"] body { background: var(--lg-wallpaper); background-attachment: fixed; }
+[data-proposal="liquid"] .study-shell { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--at-font-sans); }
+[data-proposal="liquid"] :is(.study-intro h1, .study-section-head h2, .study-research h2, .study-inspector h2) { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--at-font-sans); font-weight: 700; }
+[data-proposal="liquid"] .study-intro h1 { letter-spacing: -2.4px; }
+[data-proposal="liquid"] .study-sidebar, [data-proposal="liquid"] .study-header { border-color: transparent; }
 
-/* 03 / Signal — etched grids, compact labels, a single signal color. */
-[data-proposal="graphite"] .study-intro h1 { font-weight: 500; letter-spacing: -2.5px; }
-[data-proposal="graphite"] .study-stage { background-image: linear-gradient(var(--study-line) 1px, transparent 1px), linear-gradient(90deg, var(--study-line) 1px, transparent 1px); background-size: 28px 28px; }
-[data-proposal="graphite"] .study-object { box-shadow: 0 14px 25px #0003; }
-[data-proposal="graphite"] .object-1 { border-color: var(--at-color-accent-default); background: var(--at-color-accent-subtle); }
-[data-proposal="graphite"] .study-object strong { font: 13px var(--at-font-mono); }
-[data-proposal="graphite"] .pg-card-head { border-bottom: 1px solid var(--study-line); padding-bottom: 10px; }
-[data-proposal="graphite"] .pg-card-name { font-family: var(--at-font-mono); }
-[data-proposal="graphite"] .study-choice[aria-pressed="true"] { border-left: 3px solid var(--at-color-accent-default); }
-[data-proposal="graphite"] .at-input-surface { box-shadow: inset 0 0 0 1px var(--at-color-border-default); }
-[data-proposal="graphite"] .at-slider-thumb { box-shadow: 0 0 0 1px var(--at-color-slider-fill); }
+/* Regular glass: frosted enough for reading, rim-lit, softly shadowed. */
+[data-proposal="liquid"] :is(.study-header, .study-lab, .pg-card, .pg-modal, .at-select-pop, .at-panel, .study-choice[aria-pressed="true"], .study-research, .study-footer) {
+  background: var(--lg-tint);
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(180%);
+  backdrop-filter: blur(var(--lg-blur)) saturate(180%);
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 var(--lg-rim), inset 0 -1px 0 var(--lg-rim-soft), inset 0 0 0 1px var(--lg-edge), var(--lg-shadow);
+}
+[data-proposal="liquid"] .study-header { position: sticky; top: 12px; z-index: 30; margin: 12px 16px 0; border-radius: 999px; height: 60px; }
+[data-proposal="liquid"] .study-research, [data-proposal="liquid"] .study-footer { border-radius: var(--study-radius); padding-left: 28px; padding-right: 28px; margin-top: 24px; }
+[data-proposal="liquid"] .study-footer { margin-bottom: 32px; }
+[data-proposal="liquid"] .pg-card:hover { box-shadow: inset 0 1px 0 var(--lg-rim), inset 0 -1px 0 var(--lg-rim-soft), inset 0 0 0 1px var(--lg-edge), 0 16px 44px rgba(30, 38, 90, 0.18); }
+[data-proposal="liquid"] .study-lab { position: relative; }
+[data-proposal="liquid"] .study-inspector { border-left-color: var(--at-color-border-subtle); }
+[data-proposal="liquid"] .study-stage { background: transparent; }
+[data-proposal="liquid"] .study-choice { border-radius: 18px; }
 
-/* 04 / Mochi — soft surfaces, rounded silhouettes, tactile edges. */
-[data-proposal="gummy"] .study-intro h1 { font-family: "Trebuchet MS", var(--at-font-sans); font-weight: 700; letter-spacing: -2.5px; }
-[data-proposal="gummy"] .study-lab { border: 0; box-shadow: 0 7px 18px var(--at-color-shadow-color-soft), inset 0 1px 0 var(--at-color-highlight-line); }
-[data-proposal="gummy"] .study-stage { background: radial-gradient(ellipse at 25% 60%, #e9cab760, transparent 60%), var(--at-color-surface-sunken); }
-[data-proposal="gummy"] .study-object { border: 0; box-shadow: inset 2px 3px 4px var(--at-color-highlight-line), inset -3px -4px 7px #95665716, 6px 10px 18px #6943421c; }
-[data-proposal="gummy"] .object-1 { background: var(--at-color-accent-subtle); }
-[data-proposal="gummy"] .study-orbit { border-style: dashed; }
-[data-proposal="gummy"] .pg-card { box-shadow: inset 0 2px 0 var(--at-color-highlight-line), 0 4px 14px var(--at-color-shadow-color-soft); }
-[data-proposal="gummy"] .at-btn { border-radius: 18px; }
-[data-proposal="gummy"] .at-btn-surface { box-shadow: inset 0 2px 2px #ffffff35, inset 0 -3px 3px #673c4d18, 0 3px 5px var(--at-color-shadow-color-soft); }
-[data-proposal="gummy"] .at-input-surface { box-shadow: inset 1px 2px 3px var(--at-color-shadow-color-soft), inset -1px -1px 1px var(--at-color-highlight-line); }
-[data-proposal="gummy"] .study-choice { border-radius: 14px; }
+/* Specular light follows the pointer (set by attachSpecular). Static at rest. */
+[data-proposal="liquid"] :is(.pg-card, .study-object, .study-lab, .study-choice[aria-pressed="true"])::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 55% at var(--lg-x, 22%) var(--lg-y, 0%), var(--lg-sheen), transparent 62%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.22), transparent 38%, transparent 70%, rgba(255, 255, 255, 0.1));
+  mix-blend-mode: soft-light;
+  opacity: 0.9;
+}
+/* Rim highlight: brighter toward the light, like a polished glass edge. */
+[data-proposal="liquid"] :is(.pg-card, .study-object)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: conic-gradient(from 210deg at var(--lg-x, 30%) var(--lg-y, 10%), rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.18) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.5) 75%, rgba(255, 255, 255, 0.95));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
 
-/* 05 / Offset — structural outlines and offset shadows; motion stays continuous. */
-[data-proposal="brutal"] .study-intro h1 { font-family: Arial, var(--at-font-sans); text-transform: uppercase; font-size: clamp(40px, 4.2vw, 68px); font-weight: 900; letter-spacing: -3px; }
-[data-proposal="brutal"] .study-header { border-bottom: 2px solid var(--at-color-border-default); }
-[data-proposal="brutal"] .study-lab { border: 2px solid var(--at-color-border-default); box-shadow: 5px 5px 0 var(--at-color-border-default); }
-[data-proposal="brutal"] .study-stage { background: var(--at-color-accent-subtle); background-image: radial-gradient(var(--at-color-border-default) .7px, transparent .7px); background-size: 12px 12px; }
-[data-proposal="brutal"] .study-object { border: 2px solid var(--at-color-border-default); box-shadow: 5px 5px 0 var(--at-color-border-default); }
-[data-proposal="brutal"] .object-1 { background: #dfef70; color: #25261f; }
-[data-proposal="brutal"] .study-object strong { text-transform: uppercase; font-weight: 800; }
-[data-proposal="brutal"] .pg-card { border: 2px solid var(--at-color-border-default); box-shadow: 3px 3px 0 var(--at-color-border-default); }
-[data-proposal="brutal"] .pg-card-head { border-bottom: 1px solid var(--at-color-border-default); padding: 12px 14px; }
-[data-proposal="brutal"] .pg-card-name { font-weight: 800; text-transform: uppercase; }
-[data-proposal="brutal"] .study-choice { border-radius: 0; }
-[data-proposal="brutal"] .study-choice[aria-pressed="true"] { box-shadow: 3px 3px 0 var(--at-color-border-default); border-color: var(--at-color-border-default); }
-[data-proposal="brutal"] .at-btn:not([data-variant="ghost"]) .at-btn-surface { box-shadow: inset 0 0 0 1.5px var(--at-color-text-primary), 2px 2px 0 var(--at-color-border-default); }
-[data-proposal="brutal"] .at-slider-track, [data-proposal="brutal"] .at-switch-track { stroke: var(--at-color-border-default); stroke-width: 1.5px; }
-[data-proposal="brutal"] .study-glyph { stroke-width: 2; }
+/* Hero stage: structured, colorful content, so the lens has something to bend. */
+[data-proposal="liquid"] .study-art {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 21px, rgba(255, 255, 255, 0.5) 21px 22px),
+    repeating-linear-gradient(0deg, transparent 0 21px, rgba(255, 255, 255, 0.28) 21px 22px),
+    radial-gradient(34% 60% at 28% 50%, #ff8f6b, transparent 72%),
+    radial-gradient(32% 60% at 52% 40%, #5fc3ff, transparent 72%),
+    radial-gradient(34% 60% at 76% 58%, #a98bff, transparent 72%);
+}
+[data-proposal="liquid"][data-theme="dark"] .study-art { background: repeating-linear-gradient(90deg, transparent 0 21px, rgba(255, 255, 255, 0.12) 21px 22px), repeating-linear-gradient(0deg, transparent 0 21px, rgba(255, 255, 255, 0.07) 21px 22px), radial-gradient(34% 60% at 28% 50%, #a3402b, transparent 72%), radial-gradient(32% 60% at 52% 40%, #1c62a3, transparent 72%), radial-gradient(34% 60% at 76% 58%, #5a3bb0, transparent 72%); }
+[data-proposal="liquid"] .study-orbit { border-color: rgba(255, 255, 255, 0.55); }
+/* Clear glass: thin tint, strong refraction (lens applied in liquidLens.ts). */
+[data-proposal="liquid"] .study-object {
+  border: 0;
+  border-radius: 30px;
+  background: var(--lg-tint-clear);
+  -webkit-backdrop-filter: blur(2px) saturate(170%);
+  backdrop-filter: blur(2px) saturate(170%);
+  box-shadow: inset 0 1px 1px var(--lg-rim), inset 0 -2px 6px rgba(255, 255, 255, 0.18), 0 18px 40px rgba(30, 38, 90, 0.2);
+  color: var(--at-color-text-primary);
+}
+[data-proposal="liquid"] .object-1 { color: var(--at-color-text-primary); }
+[data-proposal="liquid"] .study-object > * { position: relative; z-index: 2; }
+
+/* Controls: capsules, glass channels, tinted primary that lights from within. */
+[data-proposal="liquid"] .at-btn { border-radius: 999px; }
+[data-proposal="liquid"] .at-btn[data-variant="secondary"] .at-btn-surface {
+  background: rgba(255, 255, 255, 0.4);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: inset 0 1px 0 var(--lg-rim), inset 0 -1px 1px var(--lg-rim-soft), inset 0 0 0 1px var(--lg-edge), 0 3px 10px rgba(30, 38, 90, 0.1);
+}
+[data-proposal="liquid"][data-theme="dark"] .at-btn[data-variant="secondary"] .at-btn-surface { background: rgba(255, 255, 255, 0.1); }
+[data-proposal="liquid"] .at-btn[data-variant="primary"] .at-btn-surface {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--at-color-fill-primary) 82%, white), var(--at-color-fill-primary));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 5px rgba(0, 0, 0, 0.14), 0 5px 16px color-mix(in srgb, var(--at-color-fill-primary) 38%, transparent);
+}
+/* Press: the glass illuminates from the touch point. */
+[data-proposal="liquid"] .at-btn .at-btn-surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--lg-x, 50%) var(--lg-y, 50%), rgba(255, 255, 255, 0.7), transparent 62%);
+  opacity: 0;
+  transition: opacity var(--at-motion-duration-fast) var(--at-ease-out);
+  pointer-events: none;
+}
+[data-proposal="liquid"] .at-btn:hover .at-btn-surface::after { opacity: 0.28; }
+[data-proposal="liquid"] .at-btn:active .at-btn-surface::after { opacity: 0.85; transition-duration: var(--at-motion-duration-micro); }
+[data-proposal="liquid"] :is(.at-slider-track, .at-switch-track, .at-seg-track) { stroke: rgba(255, 255, 255, 0.7); }
+[data-proposal="liquid"][data-theme="dark"] :is(.at-slider-track, .at-switch-track, .at-seg-track) { stroke: rgba(255, 255, 255, 0.16); }
+[data-proposal="liquid"] .at-slider-thumb { box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 2px 7px rgba(10, 30, 80, 0.28); }
+[data-proposal="liquid"] .at-switch-thumb { filter: drop-shadow(0 1px 2px rgba(10, 30, 80, 0.3)); }
+[data-proposal="liquid"] .at-seg-indicator { filter: drop-shadow(0 2px 5px color-mix(in srgb, var(--at-color-fill-primary) 40%, transparent)); }
+[data-proposal="liquid"] .at-select-trigger { background: rgba(255, 255, 255, 0.36); box-shadow: inset 0 1px 0 var(--lg-rim), inset 0 0 0 1px var(--lg-edge); }
+[data-proposal="liquid"][data-theme="dark"] .at-select-trigger { background: rgba(255, 255, 255, 0.08); }
+[data-proposal="liquid"] .at-select-pop { border-radius: 18px; }
+[data-proposal="liquid"] .pg-backdrop { -webkit-backdrop-filter: blur(10px) saturate(140%); backdrop-filter: blur(10px) saturate(140%); }
+[data-proposal="liquid"] .pg-modal-stage { background: rgba(255, 255, 255, 0.18); }
+[data-proposal="liquid"][data-theme="dark"] .pg-modal-stage { background: rgba(0, 0, 0, 0.12); }
+[data-proposal="liquid"] .pg-sample-grid { background: rgba(255, 255, 255, 0.16); }
+[data-proposal="liquid"] .pg-mock { background: rgba(255, 255, 255, 0.55); -webkit-backdrop-filter: blur(14px) saturate(170%); backdrop-filter: blur(14px) saturate(170%); box-shadow: inset 0 1px 0 var(--lg-rim), inset 0 0 0 1px var(--lg-edge), 0 8px 22px rgba(30, 38, 90, 0.12); }
+[data-proposal="liquid"][data-theme="dark"] .pg-mock { background: rgba(255, 255, 255, 0.08); }
+.mini-liquid { background: linear-gradient(135deg, #ffb38a, #ff9fc6 38%, #b9a6ff 66%, #8fd3ff); border-color: rgba(255, 255, 255, 0.85); border-radius: 12px; }
+.mini-liquid i { background: rgba(255, 255, 255, 0.38); border-color: rgba(255, 255, 255, 0.9); border-radius: 7px; box-shadow: inset 0 1px 0 #fff, 0 3px 6px #3a2a6a26; }
+.mini-liquid b { background: #0a7cff; }
 
 @media (min-width: 1500px) { .study-main { padding-left: 56px; padding-right: 56px; } .study-stage { min-height: 360px; } }
 @media (max-width: 1180px) {
@@ -211,4 +318,8 @@
   [data-proposal] .pg-modal-root { padding: 12px; }[data-proposal] .pg-modal { height: calc(100dvh - 24px); }[data-proposal] .pg-modal-demo { min-height: 160px; }
   [data-proposal] .pg-sample-grid { grid-template-columns: repeat(2, 1fr); }
 }
-@media (prefers-reduced-transparency: reduce) { [data-proposal="glass"] .study-object { background: var(--at-color-surface-raised); backdrop-filter: none; } }
+@media (prefers-reduced-transparency: reduce) {
+  [data-proposal="glass"] .study-object { background: var(--at-color-surface-raised); backdrop-filter: none; }
+  [data-proposal="liquid"] :is(.study-header, .study-lab, .pg-card, .pg-modal, .at-select-pop, .at-panel, .study-choice, .study-research, .study-footer, .study-object, .pg-mock, .at-btn[data-variant="secondary"] .at-btn-surface) { background: var(--at-color-bg-canvas) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  [data-proposal="liquid"] :is(.pg-card, .study-object)::before, [data-proposal="liquid"] :is(.pg-card, .study-object, .study-lab, .study-choice)::after { display: none; }
+}

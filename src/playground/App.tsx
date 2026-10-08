@@ -50,7 +50,7 @@ export function App() {
                   ]}
                 />
                 <div className="pg-header-tools">
-                  <a href="?proposal=glass" style={{ color: "var(--at-color-accent-default)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}>5 个样式提案 <IconExternal /></a>
+                  <a href="?proposal=glass" style={{ color: "var(--at-color-accent-default)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}>视觉提案 <IconExternal /></a>
                   <label className="pg-tool">
                     <span title="开启时跳过描边和缩放；关闭可预览完整交互">{state.reduced ? "减弱动效：绘制／缩放已关闭" : "减弱动效"}</span>
                     <Switch aria-label="减弱动效" checked={state.reduced} onChange={store.setReduced} />
