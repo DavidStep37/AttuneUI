@@ -59,7 +59,8 @@ try {
   await page.screenshot({ path: '.backup/foundation-review/select-spacing.png', fullPage: true });
   await page.keyboard.press('Escape'); await pause();
   const inset = await page.$eval(`${card('timeline')} .at-tl-track`, e => e.querySelector('.at-tl-bar').getBoundingClientRect().left - e.getBoundingClientRect().left);
-  assert(Math.abs(inset - 10) < 0.1, 'Zero-time bar has a 10px safe area');
+  // timeline.edgePadding default (src/core/schema.ts) — aligned with the Slider's 2.5px shell gap.
+  assert(Math.abs(inset - 2.5) < 0.1, 'Zero-time bar has a 2.5px safe area');
 
   const check = `${card('checkbox')} input`;
   assert(await page.$eval(check, e => e.indeterminate));

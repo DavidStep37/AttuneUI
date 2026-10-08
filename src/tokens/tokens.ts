@@ -149,7 +149,7 @@ export const valueRoll = {
 
 /** Shared feel parameters — affect every component (§10.7, rules in §4.7) */
 export const feel = {
-  passiveStrength: 0.4,
+  passiveStrength: 0.5,
   falloffRadius: 3,
   volumeConservation: 0.6,
   edgeResistance: 0.35,
