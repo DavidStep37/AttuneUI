@@ -6,6 +6,7 @@ import { useFeel } from "../core/feel";
 import { useLatest } from "../core/hooks";
 import { IconClose } from "../core/icons";
 import type { ResolvedFeel } from "../core/schema";
+import { useAttuneScope } from "../core/surface";
 
 export type DismissReason = "manual" | "auto";
 export type FeedbackProps = {
@@ -21,6 +22,7 @@ export type FeedbackProps = {
 };
 
 function Feedback({ open, onDismiss, children, title, tone = "info", duration, dismissible = true, feel: local, kind }: FeedbackProps & { kind: "alert" | "message" | "toast" }) {
+  const scope = useAttuneScope();
   const { p, t, reduced, deform } = useFeel("feedback", local);
   const [reason, setReason] = useState<DismissReason>("auto");
   const [hovered, setHovered] = useState(false);
@@ -76,7 +78,7 @@ function Feedback({ open, onDismiss, children, title, tone = "info", duration, d
       {dismissible && <button className="at-icon-btn at-feedback-close" type="button" aria-label="关闭提示" onClick={() => dismiss("manual")}><IconClose /></button>}
     </motion.div>}
   </AnimatePresence>;
-  return kind === "toast" ? typeof document === "undefined" ? null : createPortal(<div className="at-toast-viewport">{content}</div>, document.body) : content;
+  return kind === "toast" ? typeof document === "undefined" ? null : createPortal(<div {...scope} className="at-root at-toast-viewport">{content}</div>, document.body) : content;
 }
 
 export function Alert(props: FeedbackProps) { return <Feedback {...props} kind="alert" />; }

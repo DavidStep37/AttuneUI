@@ -1,0 +1,136 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "attune-ui",
+  "homepage": "https://github.com/DavidStep37/AttuneUI",
+  "items": [
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "attune-ui",
+      "type": "registry:block",
+      "title": "Attune UI — tool panel starter",
+      "description": "Preview source bundle. Graphite React controls, scoped tokens and optional frosted panels. License and support policy pending public release.",
+      "dependencies": [
+        "motion@^13.4.6",
+        "lucide-react@^1.51.0"
+      ],
+      "files": [
+        {
+          "path": "src/index.ts",
+          "type": "registry:file",
+          "target": "@components/attune/index.ts"
+        },
+        {
+          "path": "src/components/BezierEditor.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/BezierEditor.tsx"
+        },
+        {
+          "path": "src/components/Button.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/Button.tsx"
+        },
+        {
+          "path": "src/components/Checkbox.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/Checkbox.tsx"
+        },
+        {
+          "path": "src/components/Feedback.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/Feedback.tsx"
+        },
+        {
+          "path": "src/components/Input.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/Input.tsx"
+        },
+        {
+          "path": "src/components/Panel.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/Panel.tsx"
+        },
+        {
+          "path": "src/components/Segmented.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/Segmented.tsx"
+        },
+        {
+          "path": "src/components/Select.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/Select.tsx"
+        },
+        {
+          "path": "src/components/Slider.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/Slider.tsx"
+        },
+        {
+          "path": "src/components/Switch.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/Switch.tsx"
+        },
+        {
+          "path": "src/components/Tabs.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/Tabs.tsx"
+        },
+        {
+          "path": "src/components/Timeline.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/Timeline.tsx"
+        },
+        {
+          "path": "src/components/ValueRoll.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/ValueRoll.tsx"
+        },
+        {
+          "path": "src/core/feel.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/core/feel.tsx"
+        },
+        {
+          "path": "src/core/geometry.ts",
+          "type": "registry:file",
+          "target": "@components/attune/core/geometry.ts"
+        },
+        {
+          "path": "src/core/hooks.ts",
+          "type": "registry:file",
+          "target": "@components/attune/core/hooks.ts"
+        },
+        {
+          "path": "src/core/icons.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/core/icons.tsx"
+        },
+        {
+          "path": "src/core/schema.ts",
+          "type": "registry:file",
+          "target": "@components/attune/core/schema.ts"
+        },
+        {
+          "path": "src/core/surface.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/core/surface.tsx"
+        },
+        {
+          "path": "src/tokens/css.ts",
+          "type": "registry:file",
+          "target": "@components/attune/tokens/css.ts"
+        },
+        {
+          "path": "src/tokens/tokens.ts",
+          "type": "registry:file",
+          "target": "@components/attune/tokens/tokens.ts"
+        },
+        {
+          "path": "src/styles/attune.css",
+          "type": "registry:file",
+          "target": "@components/attune/styles/attune.css"
+        }
+      ],
+      "docs": "Preview only. Requires React 19 and react-dom. Import the installed attune/styles/attune.css and wrap controls in AttuneRoot. Do not call injectTokens for a scoped mount. See getting-started.md. The public license has not yet been selected."
+    }
+  ]
+}

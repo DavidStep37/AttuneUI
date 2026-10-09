@@ -4,8 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "npm run registry:build",
     "dev": "vite",
-    "build": "tsc -p . && vite build",
+    "build": "npm run registry:build && tsc -p . && vite build",
+    "registry:build": "node scripts/build-registry.mjs",
+    "registry:check": "node scripts/check-registry.mjs",
+    "check:showcase": "node scripts/check-showcase.mjs",
     "typecheck": "tsc -p .",
     "preview": "vite preview"
   },

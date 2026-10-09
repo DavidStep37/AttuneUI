@@ -5,7 +5,7 @@
   box-sizing: border-box;
 }
 
-:root {
+.at-root {
   font-family: var(--at-font-sans);
   font-size: var(--at-text-body-size);
   line-height: var(--at-text-body-line);
@@ -13,6 +13,8 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+.at-root button { font-family: inherit; }
 
 :root[data-at-scrubbing] * {
   cursor: ew-resize !important;
@@ -96,7 +98,7 @@
   pointer-events: none;
 }
 .at-slider-track {
-  fill: var(--at-color-surface-sunken);
+  fill: var(--at-material-control, var(--at-color-surface-sunken));
   stroke: var(--at-color-border-subtle);
   stroke-width: 1;
   transition: fill var(--at-motion-duration-micro) var(--at-ease-standard);
@@ -1051,9 +1053,44 @@
   width: var(--at-size-panel-width);
   max-height: 100%;
   border-radius: var(--at-radius-lg);
-  background: var(--at-color-surface-panel);
+  background: var(--at-material-panel, var(--at-color-surface-panel));
   color: var(--at-color-text-primary);
   overflow: hidden;
+}
+
+/* Optional graphite frost. Opaque defaults also cover unsupported browsers.
+   SVG tracks keep their exact outline; blur belongs to HTML surface layers. */
+.at-root[data-at-material] {
+  --at-material-panel: var(--at-color-surface-panel);
+  --at-material-control: var(--at-color-surface-sunken);
+  --at-material-blur: none;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .at-root[data-at-material="frosted"] {
+    --at-material-panel: color-mix(in srgb, var(--at-color-surface-panel) var(--at-surface-opacity, 78%), transparent);
+    --at-material-control: color-mix(in srgb, var(--at-color-surface-sunken) 74%, transparent);
+    --at-material-blur: blur(var(--at-surface-blur, 18px));
+  }
+}
+.at-panel,
+.at-select-pop,
+.at-feedback,
+.at-select-trigger,
+.at-input-surface {
+  -webkit-backdrop-filter: var(--at-material-blur, none);
+  backdrop-filter: var(--at-material-blur, none);
+}
+.at-root[data-at-material] .at-select-trigger { background: var(--at-material-control, var(--at-color-surface-sunken)); }
+.at-root[data-at-material] .at-select-trigger:hover { background: var(--at-color-surface-hover); }
+.at-root[data-at-material] .at-input-surface,
+.at-root[data-at-material].at-select-pop,
+.at-root[data-at-material] .at-feedback { background: var(--at-material-panel, var(--at-color-surface-panel)); }
+@media (prefers-reduced-transparency: reduce) {
+  .at-root[data-at-material] {
+    --at-material-panel: var(--at-color-surface-panel);
+    --at-material-control: var(--at-color-surface-sunken);
+    --at-material-blur: none;
+  }
 }
 .at-panel[data-floating] {
   position: fixed;

@@ -20,6 +20,10 @@
 
 html,
 body {
+  font-family: var(--at-font-sans);
+  font-size: var(--at-text-body-size);
+  line-height: var(--at-text-body-line);
+  -webkit-font-smoothing: antialiased;
   margin: 0;
   background: var(--at-color-bg-canvas);
   color: var(--at-color-text-primary);

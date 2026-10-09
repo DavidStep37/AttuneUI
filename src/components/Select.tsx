@@ -7,6 +7,7 @@ import { useAnimated } from "../core/hooks";
 import type { ResolvedFeel } from "../core/schema";
 import { IconCheck, MotionChevronDown } from "../core/icons";
 import { controlHeight, type ControlSize } from "../tokens/tokens";
+import { useAttuneScope } from "../core/surface";
 
 export type SelectOption<V extends string> = { value: V; label: ReactNode; hint?: ReactNode };
 
@@ -33,6 +34,7 @@ const Chevron = ({ style }: { style?: object }) => (
  * The list is the trigger itself growing: same surface, same header row.
  */
 export function Select<V extends string>({ options, value, onChange, width, listWidth, disabled, size = "md", feel: local, ...aria }: SelectProps<V>) {
+  const scope = useAttuneScope();
   const ROW = controlHeight(size);
   const { p, t } = useFeel("select", local);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -190,11 +192,12 @@ export function Select<V extends string>({ options, value, onChange, width, list
         createPortal(
           <motion.div
             ref={popRef}
-            className="at-select-pop"
+            {...scope}
+            className="at-root at-select-pop"
             data-control-size={size}
             data-up={up || undefined}
             data-at-interactive
-            style={{ left: rect.left, top, width: w, height: hgt }}
+            style={{ ...scope.style, left: rect.left, top, width: w, height: hgt }}
           >
             <button type="button" className="at-select-header" tabIndex={-1} onClick={doClose} style={{ height: th }}>
               <span className="at-select-value">{current?.label}</span>

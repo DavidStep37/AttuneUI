@@ -1,4 +1,5 @@
 import { border, color, duration, ease, font, radius, size, space, text } from "./tokens";
+import type { CSSProperties } from "react";
 
 const px = (n: number) => `${n}px`;
 const bez = (b: readonly number[]) => `cubic-bezier(${b.join(", ")})`;
@@ -30,6 +31,15 @@ function staticVars() {
     `  --at-shadow-panel: 0 8px 32px var(--at-color-shadow-color), 0 0 0 1px var(--at-color-border-subtle);`,
   );
   return lines.join("\n");
+}
+
+/** The same tokens as buildTokenCSS, scoped to a mount point instead of :root. */
+export function buildTokenStyle(theme: "light" | "dark"): CSSProperties {
+  const entries = `${staticVars()}\n${colorVars(theme)}`.split("\n").map((line) => {
+    const colon = line.indexOf(":");
+    return [line.slice(0, colon).trim(), line.slice(colon + 1).trim().replace(/;$/, "")];
+  });
+  return { ...Object.fromEntries(entries), colorScheme: theme };
 }
 
 /** Build the full token stylesheet (light default, dark via attribute or system). */

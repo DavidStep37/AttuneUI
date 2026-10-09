@@ -2,6 +2,8 @@
 
 个人组件库 Attune UI，附组件 Playground、动效调试样例和两套独立视觉提案。
 
+**2026-10-09：独立展示站预览已加入。** 原始石墨灰配色、可操作组件、悬浮面板与可选毛玻璃材质。首发建议和缺失组件优先级见 [发布准备评估](docs/release-readiness-20261009.md)，源码复制与局部挂载见 [接入指南](docs/getting-started.md)。当前未正式发布，许可证与支持范围尚待确定。
+
 **接手项目先读 [Handoff-20261008.md](Handoff-20261008.md)**：当前尺寸规则、组件交互、代码地图、运行验证和已知边界。`Handoff-20260930.md` 为早期设计背景，部分规则已被后续交互迭代替代。
 
 ## 运行
@@ -13,6 +15,7 @@ npm run build      # 类型检查 + 生产构建
 ```
 
 - `http://localhost:5188/`：组件 Playground
+- `http://localhost:5188/showcase.html`：独立 showcase 开发预览；首屏真实调参、11 组控件、材质对比和源码接入
 - `http://localhost:5188/#sample`：动效样例（卡片错落入场 + 调试面板）
 - `http://localhost:5188/#sizing`：三档尺寸的横排组合与动效对齐示例
 - `http://localhost:5188/?proposal=glass`：两个视觉提案——冰蓝玻璃与液态玻璃（Apple Liquid Glass 的转译）；原版样式与参数保留。旧的五个提案调研见 `docs/style-proposals-20261004.md`（历史资料）。
@@ -32,10 +35,26 @@ src/
                  以及 ValueRoll 和 Panel（面板、分组、参数行）
   styles/        组件样式（只引用 token）
   playground/    展示页：卡片、弹窗调参、动效样例
+  showcase/      独立展示站入口，不加载 Playground 的 CSS 或存储
 scripts/shot.mjs 开发用：用本机 Chrome 截图并收集控制台错误
 ```
 
 ## 使用
+
+外挂面板优先使用新入口 `AttuneRoot`，它管理局部 tokens、明暗主题、可选材质和系统动效偏好，Select / Toast 弹出层也会跟随局部主题。完整代码见[接入指南](docs/getting-started.md)。不需要调用全局 `injectTokens()`，也不要引入 Playground CSS。
+
+```tsx
+import { AttuneRoot, Panel, SliderField } from "./src";
+import "./src/styles/attune.css";
+
+<AttuneRoot theme="system" material="frosted" blur={18} opacity={0.78} panelRadius={16}>
+  <Panel floating title="Motion tools">
+    <SliderField label="时长" value={v} onChange={setV} min={0} max={1000} step={10} unit="ms" />
+  </Panel>
+</AttuneRoot>;
+```
+
+`panelRadius` 只控制容器圆角；SVG 控件保持现有几何。减少透明度或不支持 backdrop-filter 时回退到实底。原 `AttuneProvider` 仍可单独管理手感，但主题 tokens 和样式需要调用方提供：
 
 ```tsx
 import { AttuneProvider, Slider, SliderField } from "./src";
@@ -63,3 +82,15 @@ import { AttuneProvider, Slider, SliderField } from "./src";
 `Alert` 默认常驻；`Message` 原位显示，`Toast` 显示于页面上方。`onDismiss` 接收 `manual` 或 `auto`，由调用方关闭 `open`；传入 `duration={0}` 可关闭自动消失。悬停或键盘聚焦会暂停倒计时。手动关闭放大后模糊消散，自动关闭只模糊淡出。
 
 历史交互记录见 `docs/interaction-update-20261004.md`，最新状态以 [Handoff-20261008.md](Handoff-20261008.md) 为准。Slider 已取消方向性粗细补偿，Input 当前使用下划线→hover 描框→聚焦外扩，Segmented 滑动中填满鼓包内侧，不再收成细颈。
+
+## 源码分发与新增检查
+
+```sh
+npm run registry:build   # 生成 manifest、23 文件的 Registry 预览、接入指南副本
+npm run registry:check   # 相对依赖闭包 + 独立 React/Vite 消费端类型检查
+npm run check:showcase   # 需要 localhost:5188 与 Chrome；支持 ATTUNE_URL / CHROME_PATH
+```
+
+`npm run dev` 与 `npm run build` 都会先生成分发文件。Registry 草案地址为 `/r/attune-ui.json`，尚未完成 shadcn CLI 端到端安装验收。暂按完整套件复制，不把单个组件文件当成独立分发单元。
+
+生产构建同时产出 `dist/index.html`（原 Playground）和 `dist/showcase.html`（展示站）。独立域名与首页路由尚待安排，本轮没有公开部署。截图/测试消费端写入 `.backup/`，生成的 `public/r/` 与指南副本均被忽略；只修改源文件与 docs，再通过构建同步。

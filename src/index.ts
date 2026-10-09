@@ -1,5 +1,6 @@
 export * from "./tokens/tokens";
-export { injectTokens, buildTokenCSS } from "./tokens/css";
+export { injectTokens, buildTokenCSS, buildTokenStyle } from "./tokens/css";
+export { AttuneRoot, type AttuneRootProps, type AttuneMaterial } from "./core/surface";
 export * from "./core/feel";
 export * from "./core/schema";
 export { Slider } from "./components/Slider";

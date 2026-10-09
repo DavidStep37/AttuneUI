@@ -3,3 +3,7 @@ dist
 .DS_Store
 .backup
 *.log
+
+# Generated source-distribution previews (recreated by npm run build).
+public/r/
+public/getting-started.md
