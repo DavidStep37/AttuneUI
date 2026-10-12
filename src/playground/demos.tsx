@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { BezierEditor, type Bezier } from "../components/BezierEditor";
+import { BezierEditor, CurveGlyph, bezierPresets, type Bezier } from "../components/BezierEditor";
 import { Button } from "../components/Button";
 import { NumberField, Row, SliderField } from "../components/Panel";
 import { Segmented } from "../components/Segmented";
@@ -218,17 +218,41 @@ const easeOptions = [
   { value: "linear", label: "linear" },
 ];
 
+const longOptions = Array.from({ length: 12 }, (_, i) => ({ value: `p${i}`, label: `预设 ${i + 1}`, hint: `${(i + 1) * 80}ms` }));
+
 function SelectDemo({ variant }: { variant: Variant }) {
   const [a, setA] = useDemo("select.order", "row");
   const [b, setB] = useDemo("select.ease", "standard");
+  const [c, setC] = useDemo("select.long", "p4");
+  const [d, setD] = useDemo("select.radial", "standard");
+  const w = variant === "stage" ? 180 : 140;
   return (
     <div className="pg-rows" data-variant={variant}>
       <Row label="出现顺序">
-        <Select aria-label="出现顺序" value={a} onChange={setA} options={orderOptions} width={variant === "stage" ? 180 : 140} listWidth={variant === "stage" ? 180 : 150} />
+        <Select aria-label="出现顺序" value={a} onChange={setA} options={orderOptions} width={w} listWidth={variant === "stage" ? 180 : 150} variant={variant === "stage" ? "radial" : "dropdown"} />
       </Row>
       <Row label="缓动">
-        <Select aria-label="缓动" value={b} onChange={setB} options={easeOptions} width={variant === "stage" ? 180 : 140} listWidth={170} />
+        <Select aria-label="缓动" value={b} onChange={setB} options={easeOptions} width={w} listWidth={170} />
       </Row>
+      <Row label="列表滚动">
+        <Select aria-label="列表滚动" value={c} onChange={setC} options={longOptions} width={w} listWidth={180} maxVisible={variant === "stage" ? 6 : 5} />
+      </Row>
+      {variant === "stage" && (
+        <Row label="圆盘">
+          <Select
+            aria-label="圆盘预设"
+            variant="radial"
+            value={d}
+            onChange={setD}
+            width="100%"
+            options={bezierPresets.map((bp) => ({ value: bp.value, label: bp.short, icon: <CurveGlyph curve={bp.curve} /> }))}
+            renderHub={(o) => {
+              const pr = bezierPresets.find((x) => x.value === o?.value);
+              return pr ? <span className="at-radial-hub-preview"><CurveGlyph curve={pr.curve} size={34} strokeWidth={1.8} /><span>{pr.short}</span></span> : null;
+            }}
+          />
+        </Row>
+      )}
     </div>
   );
 }
@@ -341,6 +365,8 @@ export const hints: Record<ComponentId, string[]> = {
     "← → 键切换选项",
   ],
   select: [
+    "点击底部第三条「列表滚动」：滚到最后一项后继续下滑，菜单向下拉伸，松手回弹",
+    "出现顺序在弹窗里是圆盘变体：选项等分圆盘，悬停的扇区变成石墨色并向外撑起",
     "打开：列表从触发器本身生长出来，而不是凭空出现",
     "hover 选项：高亮底色连续滑动，前沿快、后沿稍慢",
     "展开途中再次点击，立即反向收回",

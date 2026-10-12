@@ -517,6 +517,12 @@
 .at-select-list {
   flex: none;
 }
+.at-select-view {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.at-select-view::-webkit-scrollbar { display: none; }
 .at-select-rows {
   position: relative;
 }
@@ -1257,22 +1263,14 @@
    Same language as the Slider: sunken base (外壳) + one tile per option (内芯),
    2.5px apart. Flat token colors only; the hovered tile takes the graphite fill. */
 
-.at-radial-trigger {
-  display: inline-flex; align-items: center; gap: var(--at-space-2);
-  height: var(--at-control-height, 28px); padding: 0 var(--at-space-3) 0 var(--at-space-2);
-  border: 0; border-radius: var(--at-radius-control);
-  background: var(--at-material-control, var(--at-color-surface-sunken)); color: var(--at-color-text-primary);
-  box-shadow: inset 0 0 0 1px var(--at-color-border-subtle);
-  font: inherit; font-size: var(--at-text-body-size); cursor: pointer;
-  transition: background-color var(--at-motion-duration-micro) var(--at-ease-standard);
-  touch-action: none; user-select: none;
-}
-.at-radial-trigger:hover, .at-radial-trigger[data-open] { background: var(--at-color-surface-hover); }
-.at-radial-trigger:focus-visible { outline: var(--at-focus-width) solid var(--at-color-focus-ring); outline-offset: var(--at-focus-offset); }
-.at-radial-trigger:disabled { opacity: .45; cursor: not-allowed; }
-.at-radial-trigger-icon { display: inline-flex; }
-.at-radial-trigger-label { white-space: nowrap; }
-.at-radial-trigger-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--at-color-text-tertiary); box-shadow: 5px 0 0 var(--at-color-text-tertiary), -5px 0 0 var(--at-color-text-tertiary); margin: 0 6px 0 4px; }
+/* The trigger is the Select trigger; only the affordance differs: a small ring
+   instead of a chevron tells the two variants apart at a glance. */
+.at-radial-trigger { touch-action: none; user-select: none; }
+.at-radial-trigger[data-open-radial] { background: var(--at-color-surface-hover); }
+.at-radial-trigger-value { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.at-radial-trigger-icon { display: inline-flex; flex: none; }
+.at-radial-trigger-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.at-radial-trigger-mark { flex: none; width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 1.75px var(--at-color-text-tertiary); }
 
 .at-radial {
   position: fixed; z-index: 1000; outline: none;

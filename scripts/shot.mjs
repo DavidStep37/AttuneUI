@@ -30,7 +30,12 @@ for (const a of actions) {
   }
   if (a.clipOf) {
     const r = await page.$eval(a.clipOf, (e, pad) => { const b = e.getBoundingClientRect(); return { x: b.x - pad, y: b.y - pad, width: b.width + pad * 2, height: b.height + pad * 2 }; }, a.pad ?? 8);
-    await page.screenshot({ path: `/tmp/attune-${a.name}.png`, clip: r });
+    await page.screenshot({ path: `/tmp/attune-${a.name}.png`, clip: r, captureBeyondViewport: false });
+  }
+  if (a.wheel) {
+    const b = await page.$eval(a.wheel.at, (e) => { const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+    await page.mouse.move(b[0], b[1]);
+    for (let i = 0; i < (a.wheel.times ?? 1); i++) await page.mouse.wheel({ deltaY: a.wheel.dy });
   }
   if (a.down) await page.mouse.down();
   if (a.up) await page.mouse.up();

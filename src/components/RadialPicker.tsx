@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useMotionValueEvent } from "motion/react";
 import { useFeelState, springTransition } from "../core/feel";
 import { annularSector, clamp, gaussian } from "../core/geometry";
 import { useAnimated, useLatest } from "../core/hooks";
 import { useAttuneScope } from "../core/surface";
-import type { SpringToken } from "../tokens/tokens";
+import type { ControlSize, SpringToken } from "../tokens/tokens";
 
 /**
  * RadialPicker — 圆盘呼出（实验组件）
@@ -58,6 +58,9 @@ export type RadialPickerProps<V extends string> = {
   "aria-label"?: string;
   disabled?: boolean;
   className?: string;
+  size?: ControlSize;
+  /** trigger style (e.g. width) */
+  style?: CSSProperties;
   feel?: Partial<RadialFeel>;
 };
 
@@ -73,7 +76,7 @@ const f = (v: number) => (Math.round(v * 100) / 100).toString();
 /** Angle of sector i's centre: first option at 12 o'clock, clockwise (screen y-down). */
 const sectorAngle = (i: number, n: number) => -Math.PI / 2 + (i * TAU) / n;
 
-export function RadialPicker<V extends string>({ options, value, onChange, children, renderHub, disabled, className, feel: local, ...aria }: RadialPickerProps<V>) {
+export function RadialPicker<V extends string>({ options, value, onChange, children, renderHub, disabled, className, size: controlSize = "md", style, feel: local, ...aria }: RadialPickerProps<V>) {
   const fp = { ...radialFeelDefaults, ...local };
   const { reduced, shared } = useFeelState();
   const deform = reduced ? 0 : shared.deformScale;
@@ -297,22 +300,26 @@ export function RadialPicker<V extends string>({ options, value, onChange, child
       <button
         ref={triggerRef}
         type="button"
-        className={`at-radial-trigger ${className ?? ""}`}
-        data-open={open || undefined}
+        className={`at-select-trigger at-radial-trigger ${className ?? ""}`}
+        data-control-size={controlSize}
+        data-open-radial={open || undefined}
         data-at-interactive
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={`${id}-disc`}
         aria-label={aria["aria-label"]}
         disabled={disabled}
+        style={style}
         onPointerDown={onTriggerDown}
         onKeyDown={onTriggerKey}
       >
         {children ?? (
           <>
-            {current?.icon && <span className="at-radial-trigger-icon">{current.icon}</span>}
-            <span className="at-radial-trigger-label">{current?.label ?? "选择"}</span>
-            <span className="at-radial-trigger-dot" aria-hidden />
+            <span className="at-select-value at-radial-trigger-value">
+              {current?.icon && <span className="at-radial-trigger-icon">{current.icon}</span>}
+              <span className="at-radial-trigger-label">{current?.label ?? "选择"}</span>
+            </span>
+            <span className="at-radial-trigger-mark" aria-hidden />
           </>
         )}
       </button>

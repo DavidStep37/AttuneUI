@@ -133,6 +133,8 @@ export const componentSchemas = {
     s("openSpring", "展开", "列表", "pop"),
     s("highlightSpring", "高亮跟随", "高亮", "snappy"),
     n("highlightStretch", "高亮拉伸", "高亮", 0, 1, 0.01, { default: 0.5 }),
+    n("overscroll", "触底拉伸", "滚动", 0, 40, 1, { default: 24, unit: "px", hint: "滚动到最后一项后继续下滑，菜单向下拉伸的最大距离；0 关闭" }),
+    sd("overscrollSpring", "拉伸回弹", "滚动", { visualDuration: 0.32, bounce: 0.3 }),
   ],
   checkbox: [
     n("hoverScale", "悬停放大", "外框", 1, 1.2, 0.01, { default: 1.08, unit: "×" }),

@@ -6,7 +6,6 @@ import { useAnimated } from "../core/hooks";
 import type { ResolvedFeel } from "../core/schema";
 import { NumberInput } from "./Input";
 import { Select } from "./Select";
-import { RadialPicker } from "./RadialPicker";
 import { MotionChevronDown } from "../core/icons";
 
 export type Bezier = [number, number, number, number];
@@ -52,8 +51,8 @@ export type BezierEditorProps = {
   showPreview?: boolean;
   /** show the horizontal preview track under the graph */
   showTrack?: boolean;
-  /** how presets are picked: dropdown (default) or the experimental radial disc */
-  presetPicker?: "select" | "radial";
+  /** how presets are picked: the radial disc (fixed small set) or a dropdown (default) */
+  presetPicker?: "radial" | "select";
   feel?: Partial<ResolvedFeel<"bezier">>;
 };
 
@@ -226,31 +225,20 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
       </div>
       {(showInputs || showPresets) && (
         <div className="at-bezier-controls">
-          {showPresets && presetPicker === "radial" && (
-            <RadialPicker
+          {showPresets && (
+            <Select
               aria-label="缓动预设"
-              value={presetOf(value) === "custom" ? null : presetOf(value)}
-              options={bezierPresets.map((b) => ({ value: b.value, label: b.short, icon: <CurveGlyph curve={b.curve} /> }))}
-              onChange={(k) => {
-                const pr = bezierPresets.find((b) => b.value === k);
-                if (pr) onChange(pr.curve);
-              }}
+              width="100%"
+              variant={presetPicker === "radial" ? "radial" : "dropdown"}
+              value={presetOf(value)}
+              options={[
+                ...bezierPresets.map((b) => ({ value: b.value, label: presetPicker === "radial" ? b.short : b.label, icon: <CurveGlyph curve={b.curve} /> })),
+                ...(presetOf(value) === "custom" && presetPicker !== "radial" ? [{ value: "custom", label: "自定义" }] : []),
+              ]}
               renderHub={(o) => {
                 const pr = bezierPresets.find((b) => b.value === o?.value);
                 return pr ? <span className="at-radial-hub-preview"><CurveGlyph curve={pr.curve} size={34} strokeWidth={1.8} /><span>{pr.short}</span></span> : <span className="at-radial-hub-label">自定义</span>;
               }}
-            >
-              <span className="at-radial-trigger-icon"><CurveGlyph curve={value} /></span>
-              <span className="at-radial-trigger-label">{bezierPresets.find((b) => b.value === presetOf(value))?.label ?? "自定义"}</span>
-              <span className="at-radial-trigger-dot" aria-hidden />
-            </RadialPicker>
-          )}
-          {showPresets && presetPicker === "select" && (
-            <Select
-              aria-label="缓动预设"
-              width="100%"
-              value={presetOf(value)}
-              options={[...bezierPresets.map((b) => ({ value: b.value, label: b.label })), ...(presetOf(value) === "custom" ? [{ value: "custom", label: "自定义" }] : [])]}
               onChange={(k) => {
                 const pr = bezierPresets.find((b) => b.value === k);
                 if (pr) onChange(pr.curve);
