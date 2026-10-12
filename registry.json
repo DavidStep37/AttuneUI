@@ -50,6 +50,11 @@
           "target": "@components/attune/components/Panel.tsx"
         },
         {
+          "path": "src/components/RadialPicker.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/RadialPicker.tsx"
+        },
+        {
           "path": "src/components/Segmented.tsx",
           "type": "registry:file",
           "target": "@components/attune/components/Segmented.tsx"

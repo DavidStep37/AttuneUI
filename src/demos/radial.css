@@ -1,0 +1,22 @@
+html, body { margin: 0; }
+.rd-page { min-height: 100vh; padding: 48px 56px 80px; background: var(--at-color-bg-canvas); color: var(--at-color-text-primary); font-family: var(--at-font-sans); font-size: 12px; box-sizing: border-box; }
+.rd-page * { box-sizing: border-box; }
+.rd-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 32px; max-width: 1180px; margin: 0 auto 32px; }
+.rd-eyebrow { font: 10px var(--at-font-mono); letter-spacing: 1.2px; color: var(--at-color-text-tertiary); }
+.rd-head h1 { margin: 10px 0 8px; font-size: 30px; letter-spacing: -.6px; font-weight: 600; }
+.rd-head p { margin: 0; max-width: 620px; color: var(--at-color-text-secondary); line-height: 1.85; }
+.rd-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; max-width: 1180px; margin: 0 auto; align-items: start; }
+.rd-card { border-radius: 16px; background: var(--at-color-surface-panel); box-shadow: 0 0 0 1px var(--at-color-border-subtle), 0 8px 24px var(--at-color-shadow-color-soft); padding: 18px; min-height: 300px; display: flex; flex-direction: column; }
+.rd-card-wide { grid-column: span 2; grid-row: span 2; }
+.rd-card-head { display: flex; align-items: baseline; gap: 10px; }
+.rd-card-head span { font: 10px var(--at-font-mono); color: var(--at-color-text-tertiary); }
+.rd-card-head strong { font-size: 13px; font-weight: 600; }
+.rd-card-head em { font-style: normal; color: var(--at-color-text-tertiary); margin-left: auto; }
+.rd-stage { flex: 1; display: flex; gap: 40px; align-items: center; justify-content: center; padding: 24px 0 8px; }
+.rd-stage-center { flex-direction: column; gap: 18px; }
+.rd-stage .at-bezier { width: 260px; }
+.rd-compare { display: flex; flex-direction: column; gap: 10px; width: 170px; opacity: .9; }
+.rd-label { color: var(--at-color-text-tertiary); font-size: 11px; }
+.rd-panel { width: 100%; }
+.rd-reset { border: 0; background: none; color: var(--at-color-text-secondary); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; padding: 0; }
+@media (max-width: 1000px) { .rd-grid { grid-template-columns: 1fr; } .rd-card-wide { grid-column: auto; grid-row: auto; } .rd-stage { flex-direction: column; } .rd-page { padding: 28px 20px 60px; } }

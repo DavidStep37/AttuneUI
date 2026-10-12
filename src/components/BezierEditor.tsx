@@ -6,20 +6,35 @@ import { useAnimated } from "../core/hooks";
 import type { ResolvedFeel } from "../core/schema";
 import { NumberInput } from "./Input";
 import { Select } from "./Select";
+import { RadialPicker } from "./RadialPicker";
 import { MotionChevronDown } from "../core/icons";
 
 export type Bezier = [number, number, number, number];
 
-export const bezierPresets: { value: string; label: string; curve: Bezier }[] = [
-  { value: "linear", label: "linear", curve: [0, 0, 1, 1] },
-  { value: "ease", label: "ease", curve: [0.25, 0.1, 0.25, 1] },
-  { value: "ease-in", label: "ease-in", curve: [0.42, 0, 1, 1] },
-  { value: "ease-out", label: "ease-out", curve: [0, 0, 0.58, 1] },
-  { value: "ease-in-out", label: "ease-in-out", curve: [0.42, 0, 0.58, 1] },
-  { value: "standard", label: "Attune standard", curve: [0.2, 0, 0, 1] },
-  { value: "out-expo", label: "Attune out", curve: [0.16, 1, 0.3, 1] },
-  { value: "back-out", label: "back-out", curve: [0.34, 1.56, 0.64, 1] },
+export const bezierPresets: { value: string; label: string; short: string; curve: Bezier }[] = [
+  { value: "linear", label: "linear", short: "linear", curve: [0, 0, 1, 1] },
+  { value: "ease", label: "ease", short: "ease", curve: [0.25, 0.1, 0.25, 1] },
+  { value: "ease-in", label: "ease-in", short: "in", curve: [0.42, 0, 1, 1] },
+  { value: "ease-out", label: "ease-out", short: "out", curve: [0, 0, 0.58, 1] },
+  { value: "ease-in-out", label: "ease-in-out", short: "in-out", curve: [0.42, 0, 0.58, 1] },
+  { value: "standard", label: "Attune standard", short: "standard", curve: [0.2, 0, 0, 1] },
+  { value: "out-expo", label: "Attune out", short: "expo", curve: [0.16, 1, 0.3, 1] },
+  { value: "back-out", label: "back-out", short: "back", curve: [0.34, 1.56, 0.64, 1] },
 ];
+
+/** Small curve glyph for a cubic-bezier, drawn in a size×size box with overshoot room. */
+export function CurveGlyph({ curve, size = 22, strokeWidth = 1.6 }: { curve: Bezier; size?: number; strokeWidth?: number }) {
+  const p = 3;
+  const s = size - p * 2;
+  const x = (v: number) => p + v * s;
+  const y = (v: number) => p + (1 - v) * s * 0.8 + s * 0.1;
+  const [a, b, c, d] = curve;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+      <path d={`M${x(0)} ${y(0)} C${x(a)} ${y(b)} ${x(c)} ${y(d)} ${x(1)} ${y(1)}`} fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+    </svg>
+  );
+}
 
 const same = (a: Bezier, b: Bezier) => a.every((v, i) => Math.abs(v - b[i]) < 1e-4);
 export const presetOf = (c: Bezier) => bezierPresets.find((p) => same(p.curve, c))?.value ?? "custom";
@@ -37,13 +52,15 @@ export type BezierEditorProps = {
   showPreview?: boolean;
   /** show the horizontal preview track under the graph */
   showTrack?: boolean;
+  /** how presets are picked: dropdown (default) or the experimental radial disc */
+  presetPicker?: "select" | "radial";
   feel?: Partial<ResolvedFeel<"bezier">>;
 };
 
 /**
  * Bezier Editor — 控制点牵拉一根有弹性的线 (Handoff §5.5)
  */
-export function BezierEditor({ value, onChange, size = 200, showInputs = true, showPresets = true, showPreview = true, showTrack = true, feel: local }: BezierEditorProps) {
+export function BezierEditor({ value, onChange, size = 200, showInputs = true, showPresets = true, showPreview = true, showTrack = true, presetPicker = "select", feel: local }: BezierEditorProps) {
   const { p, t, deform } = useFeel("bezier", local);
   const plotClipId = useId();
   const pad = 10;
@@ -209,7 +226,26 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
       </div>
       {(showInputs || showPresets) && (
         <div className="at-bezier-controls">
-          {showPresets && (
+          {showPresets && presetPicker === "radial" && (
+            <RadialPicker
+              aria-label="缓动预设"
+              value={presetOf(value) === "custom" ? null : presetOf(value)}
+              options={bezierPresets.map((b) => ({ value: b.value, label: b.short, icon: <CurveGlyph curve={b.curve} /> }))}
+              onChange={(k) => {
+                const pr = bezierPresets.find((b) => b.value === k);
+                if (pr) onChange(pr.curve);
+              }}
+              renderHub={(o) => {
+                const pr = bezierPresets.find((b) => b.value === o?.value);
+                return pr ? <span className="at-radial-hub-preview"><CurveGlyph curve={pr.curve} size={34} strokeWidth={1.8} /><span>{pr.short}</span></span> : <span className="at-radial-hub-label">自定义</span>;
+              }}
+            >
+              <span className="at-radial-trigger-icon"><CurveGlyph curve={value} /></span>
+              <span className="at-radial-trigger-label">{bezierPresets.find((b) => b.value === presetOf(value))?.label ?? "自定义"}</span>
+              <span className="at-radial-trigger-dot" aria-hidden />
+            </RadialPicker>
+          )}
+          {showPresets && presetPicker === "select" && (
             <Select
               aria-label="缓动预设"
               width="100%"

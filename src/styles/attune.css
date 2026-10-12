@@ -1252,3 +1252,66 @@
   line-height: var(--at-text-body-line);
   vertical-align: middle;
 }
+
+/* ------------------------------------------------------- RadialPicker (experimental)
+   Same language as the Slider: sunken base (外壳) + one tile per option (内芯),
+   2.5px apart. Flat token colors only; the hovered tile takes the graphite fill. */
+
+.at-radial-trigger {
+  display: inline-flex; align-items: center; gap: var(--at-space-2);
+  height: var(--at-control-height, 28px); padding: 0 var(--at-space-3) 0 var(--at-space-2);
+  border: 0; border-radius: var(--at-radius-control);
+  background: var(--at-material-control, var(--at-color-surface-sunken)); color: var(--at-color-text-primary);
+  box-shadow: inset 0 0 0 1px var(--at-color-border-subtle);
+  font: inherit; font-size: var(--at-text-body-size); cursor: pointer;
+  transition: background-color var(--at-motion-duration-micro) var(--at-ease-standard);
+  touch-action: none; user-select: none;
+}
+.at-radial-trigger:hover, .at-radial-trigger[data-open] { background: var(--at-color-surface-hover); }
+.at-radial-trigger:focus-visible { outline: var(--at-focus-width) solid var(--at-color-focus-ring); outline-offset: var(--at-focus-offset); }
+.at-radial-trigger:disabled { opacity: .45; cursor: not-allowed; }
+.at-radial-trigger-icon { display: inline-flex; }
+.at-radial-trigger-label { white-space: nowrap; }
+.at-radial-trigger-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--at-color-text-tertiary); box-shadow: 5px 0 0 var(--at-color-text-tertiary), -5px 0 0 var(--at-color-text-tertiary); margin: 0 6px 0 4px; }
+
+.at-radial {
+  position: fixed; z-index: 1000; outline: none;
+  color: var(--at-color-text-secondary); font-family: var(--at-font-sans);
+}
+.at-radial-svg { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+/* Base = the Slider's outer track: sunken fill, 1px subtle border, popover shadow. */
+.at-radial-base {
+  fill: var(--at-material-control, var(--at-color-surface-sunken));
+  stroke: var(--at-color-border-subtle); stroke-width: 1;
+  filter: drop-shadow(0 4px 16px var(--at-color-shadow-color-soft)) drop-shadow(0 12px 28px var(--at-color-shadow-color-soft));
+}
+/* Tiles = inner cores: panel surface + subtle edge at rest, graphite fill on hover. */
+.at-radial-tile-face, .at-radial-tile-edge { transition: fill var(--at-motion-duration-micro) var(--at-ease-standard), stroke var(--at-motion-duration-micro) var(--at-ease-standard); }
+.at-radial-tile-face { fill: var(--at-color-surface-panel); stroke: var(--at-color-surface-panel); }
+.at-radial-tile-edge { fill: var(--at-color-border-subtle); stroke: var(--at-color-border-subtle); }
+.at-radial-tile[data-active] .at-radial-tile-face { fill: var(--at-color-fill-primary); stroke: var(--at-color-fill-primary); }
+.at-radial-tile[data-active] .at-radial-tile-edge { fill: var(--at-color-fill-primary); stroke: var(--at-color-fill-primary); }
+.at-radial-option {
+  position: absolute;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  width: 64px; pointer-events: none; text-align: center;
+  font-size: 10px; line-height: 12px; letter-spacing: .1px;
+  color: var(--at-color-text-secondary);
+  transition: color var(--at-motion-duration-micro) var(--at-ease-standard);
+}
+.at-radial-option-icon { display: inline-flex; color: var(--at-color-text-primary); transition: color var(--at-motion-duration-micro) var(--at-ease-standard); }
+.at-radial-option[data-active] { color: var(--at-color-fill-primary-contrast); }
+.at-radial-option[data-active] .at-radial-option-icon { color: var(--at-color-fill-primary-contrast); }
+.at-radial-option-label { white-space: nowrap; font-weight: 500; }
+.at-radial-option-mark { position: absolute; top: -9px; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.at-radial-hub {
+  position: absolute; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+  background: var(--at-color-surface-panel);
+  box-shadow: inset 0 0 0 1px var(--at-color-border-subtle);
+  color: var(--at-color-text-primary); font: inherit;
+  transition: background-color var(--at-motion-duration-micro) var(--at-ease-standard);
+}
+.at-radial-hub:hover { box-shadow: inset 0 0 0 1px var(--at-color-border-default); }
+.at-radial-hub-label { font-size: 10px; font-weight: 600; }
+
+.at-radial-hub-preview { display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 10px; font-weight: 600; }

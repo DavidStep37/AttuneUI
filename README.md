@@ -18,6 +18,7 @@ npm run build      # 类型检查 + 生产构建
 - `http://localhost:5188/showcase.html`：独立 showcase 开发预览；首屏真实调参、11 组控件、材质对比和源码接入
 - `http://localhost:5188/#sample`：动效样例（卡片错落入场 + 调试面板）
 - `http://localhost:5188/#sizing`：三档尺寸的横排组合与动效对齐示例
+- `http://localhost:5188/radial.html`：实验中的圆盘呼出（RadialPicker）demo，用等分圆盘代替下拉来选贝塞尔预设。
 - `http://localhost:5188/?proposal=glass`：两个视觉提案——冰蓝玻璃与液态玻璃（Apple Liquid Glass 的转译）；原版样式与参数保留。旧的五个提案调研见 `docs/style-proposals-20261004.md`（历史资料）。
 
 ## 目录

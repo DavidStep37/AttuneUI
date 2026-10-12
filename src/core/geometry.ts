@@ -349,6 +349,43 @@ export function shellCore(i: ShellCoreInput) {
   return { shellPath: closedPath(shell), corePath: closedPath(core), core, shell, coreHalf, cx0, cx1 };
 }
 
+/**
+ * Annular sector ("tile") for RadialPicker, as a closed polygon.
+ * The two straight sides are parallel to the sector's dividers at a constant
+ * perpendicular distance `side` — not a constant angle — so the gap between
+ * neighbouring tiles is the same from hub to rim, for any number of sectors.
+ * `rOut` may vary with angle (the rim swell).
+ */
+export function annularSector(i: { cx: number; cy: number; mid: number; half: number; rIn: number; rOut: (a: number) => number; side: number; steps?: number }) {
+  const steps = i.steps ?? 24;
+  const lo = i.mid - i.half;
+  const hi = i.mid + i.half;
+  // angle at which a circle of radius r sits `side` away from a divider ray
+  const off = (r: number) => Math.asin(Math.min(1, i.side / Math.max(i.side, r)));
+  // the outer radius depends on the angle and vice versa: two fixed-point passes
+  const solve = (edge: number, dir: 1 | -1) => {
+    let a = edge + dir * off(i.rOut(edge));
+    a = edge + dir * off(i.rOut(a));
+    return edge + dir * off(i.rOut(a));
+  };
+  const o0 = solve(lo, 1);
+  const o1 = solve(hi, -1);
+  const i0 = lo + off(i.rIn);
+  const i1 = hi - off(i.rIn);
+  const pts: [number, number][] = [];
+  if (o1 <= o0 || i1 <= i0) return pts;
+  for (let j = 0; j <= steps; j++) {
+    const a = o0 + ((o1 - o0) * j) / steps;
+    const r = i.rOut(a);
+    pts.push([i.cx + Math.cos(a) * r, i.cy + Math.sin(a) * r]);
+  }
+  for (let j = steps; j >= 0; j--) {
+    const a = i0 + ((i1 - i0) * j) / steps;
+    pts.push([i.cx + Math.cos(a) * i.rIn, i.cy + Math.sin(a) * i.rIn]);
+  }
+  return pts;
+}
+
 /** Cubic bezier easing evaluation (CSS semantics). */
 export function bezierEasing(x1: number, y1: number, x2: number, y2: number) {
   const cx = 3 * x1;
