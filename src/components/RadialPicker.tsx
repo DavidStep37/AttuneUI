@@ -20,7 +20,8 @@ import type { ControlSize, SpringToken } from "../tokens/tokens";
  * confirm, Esc close.
  */
 
-export type RadialOption<V extends string> = { value: V; label: ReactNode; icon?: ReactNode; hint?: ReactNode };
+/** `shortLabel` is used on the disc tiles when `label` is too long for a sector. */
+export type RadialOption<V extends string> = { value: V; label: ReactNode; shortLabel?: ReactNode; icon?: ReactNode; hint?: ReactNode };
 
 export type RadialFeel = {
   /** disc outer radius (px) */
@@ -371,7 +372,7 @@ export function RadialPicker<V extends string>({ options, value, onChange, child
                     exit={{ opacity: 0, transition: { duration: 0.08 } }}
                   >
                     {o.icon && <span className="at-radial-option-icon">{o.icon}</span>}
-                    <span className="at-radial-option-label">{o.label}</span>
+                    <span className="at-radial-option-label">{o.shortLabel ?? o.label}</span>
                     {i === sel && <span className="at-radial-option-mark" aria-hidden />}
                   </motion.div>
                 );

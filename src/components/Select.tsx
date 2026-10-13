@@ -10,7 +10,7 @@ import { controlHeight, type ControlSize } from "../tokens/tokens";
 import { useAttuneScope } from "../core/surface";
 import { RadialPicker, type RadialFeel } from "./RadialPicker";
 
-export type SelectOption<V extends string> = { value: V; label: ReactNode; hint?: ReactNode; /** used by the radial variant */ icon?: ReactNode };
+export type SelectOption<V extends string> = { value: V; label: ReactNode; /** radial variant: shorter tile label when `label` is long */ shortLabel?: ReactNode; hint?: ReactNode; /** used by the radial variant */ icon?: ReactNode };
 
 export type SelectProps<V extends string> = {
   size?: ControlSize;

@@ -224,35 +224,39 @@ function SelectDemo({ variant }: { variant: Variant }) {
   const [a, setA] = useDemo("select.order", "row");
   const [b, setB] = useDemo("select.ease", "standard");
   const [c, setC] = useDemo("select.long", "p4");
-  const [d, setD] = useDemo("select.radial", "standard");
+  const [d, setD] = useDemo("select.easeRadial", "out-expo");
   const w = variant === "stage" ? 180 : 140;
+  const easeRadial = (
+    <Select
+      aria-label="缓动（圆盘）"
+      variant="radial"
+      value={d}
+      onChange={setD}
+      width="100%"
+      options={bezierPresets.map((bp) => ({ value: bp.value, label: bp.label, shortLabel: bp.short, icon: <CurveGlyph curve={bp.curve} /> }))}
+      renderHub={(o) => {
+        const pr = bezierPresets.find((x) => x.value === o?.value);
+        return pr ? (
+          <span className="at-radial-hub-preview">
+            <CurveGlyph curve={pr.curve} size={34} strokeWidth={1.8} />
+            <span>{pr.short}</span>
+          </span>
+        ) : null;
+      }}
+    />
+  );
   return (
     <div className="pg-rows" data-variant={variant}>
+      <Row label={variant === "card" ? "缓动（圆盘）" : "缓动"}>
+        {variant === "card" ? easeRadial : <Select aria-label="缓动" value={b} onChange={setB} options={easeOptions} width={w} listWidth={170} />}
+      </Row>
       <Row label="出现顺序">
         <Select aria-label="出现顺序" value={a} onChange={setA} options={orderOptions} width={w} listWidth={variant === "stage" ? 180 : 150} variant={variant === "stage" ? "radial" : "dropdown"} />
-      </Row>
-      <Row label="缓动">
-        <Select aria-label="缓动" value={b} onChange={setB} options={easeOptions} width={w} listWidth={170} />
       </Row>
       <Row label="列表滚动">
         <Select aria-label="列表滚动" value={c} onChange={setC} options={longOptions} width={w} listWidth={180} maxVisible={variant === "stage" ? 6 : 5} />
       </Row>
-      {variant === "stage" && (
-        <Row label="圆盘">
-          <Select
-            aria-label="圆盘预设"
-            variant="radial"
-            value={d}
-            onChange={setD}
-            width="100%"
-            options={bezierPresets.map((bp) => ({ value: bp.value, label: bp.short, icon: <CurveGlyph curve={bp.curve} /> }))}
-            renderHub={(o) => {
-              const pr = bezierPresets.find((x) => x.value === o?.value);
-              return pr ? <span className="at-radial-hub-preview"><CurveGlyph curve={pr.curve} size={34} strokeWidth={1.8} /><span>{pr.short}</span></span> : null;
-            }}
-          />
-        </Row>
-      )}
+      {variant === "stage" && <Row label="缓动（圆盘）">{easeRadial}</Row>}
     </div>
   );
 }
