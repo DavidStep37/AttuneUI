@@ -48,13 +48,26 @@ try {
   assert.equal(await page.$eval(seg + ' .at-seg-option', e => e.getAttribute('aria-checked')), 'true');
   await page.mouse.move(0, 0);
 
-  await page.click(`${card('select')} .at-select-trigger`); await pause();
-  const options = await page.$$('.at-select-option'); await options.at(-1).hover(); await pause();
+  // The Select card's first row is now the radial variant; the spacing check needs a dropdown.
+  await page.click(`${card('select')} [aria-label="出现顺序"]`); await pause();
+  // Hover the last row by coordinates: the popup may sit near the viewport bottom,
+  // where Puppeteer's element hover scrolls the page and closes the menu.
+  const lastRow = await page.$$eval('.at-select-option', els => { const r = els[els.length - 1].getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  await page.mouse.move(lastRow[0], lastRow[1]);
+  // The highlight glides to the hovered row; wait for the spring to settle before measuring.
+  await pause(1200);
   const spacing = await page.$eval('.at-select-pop', el => {
-    const r = el.getBoundingClientRect(), hl = el.querySelector('.at-select-hl'), h = hl.getBoundingClientRect();
-    return { l: h.left - r.left, r: r.right - h.right, b: r.bottom - h.bottom, outer: parseFloat(getComputedStyle(el).borderBottomLeftRadius), inner: parseFloat(getComputedStyle(hl).borderBottomLeftRadius) };
+    // Measure the highlight against the list container (the header row is a
+    // separate sibling), and against the side it sits on: the list flips above
+    // the trigger near the viewport edge, which puts the header below the rows.
+    const list = el.querySelector('.at-select-list').getBoundingClientRect();
+    const hl = el.querySelector('.at-select-hl');
+    const h = hl.getBoundingClientRect();
+    const view = el.querySelector('.at-select-view').getBoundingClientRect();
+    const above = h.top < view.top + view.height / 2;
+    return { l: h.left - list.left, r: list.right - h.right, b: above ? h.top - list.top : list.bottom - h.bottom, outer: parseFloat(getComputedStyle(el).borderBottomLeftRadius), inner: parseFloat(getComputedStyle(hl).borderBottomLeftRadius) };
   });
-  assert(Math.abs(spacing.l - 4) < 0.2 && Math.abs(spacing.r - 4) < 0.2 && Math.abs(spacing.b - 4) < 0.2);
+  assert(Math.abs(spacing.l - 4) < 0.2 && Math.abs(spacing.r - 4) < 0.2 && Math.abs(spacing.b - 4) < 0.2, `select list inset ${JSON.stringify(spacing)}`);
   assert.equal(spacing.outer - spacing.inner, 4, 'Nested radii follow the 4px inset');
   await page.screenshot({ path: '.backup/foundation-review/select-spacing.png', fullPage: true });
   await page.keyboard.press('Escape'); await pause();

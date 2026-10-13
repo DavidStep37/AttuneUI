@@ -332,7 +332,7 @@ function DropdownSelect<V extends string>({ options, value, onChange, width, lis
                     className="at-select-option"
                     data-selected={i === selIdx || undefined}
                     data-active={i === active || undefined}
-                    style={{ height: ROW, transform: `translateY(calc(var(--at-select-stretch, 0px) * ${depthOf(i)}))` }}
+                    style={{ height: ROW }}
                     onPointerMove={() => i !== active && setActive(i)}
                     onClick={() => choose(i)}
                   >
