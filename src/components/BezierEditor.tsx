@@ -7,6 +7,7 @@ import type { ResolvedFeel } from "../core/schema";
 import { NumberInput } from "./Input";
 import { Select } from "./Select";
 import { MotionChevronDown } from "../core/icons";
+import { BezierSides } from "./BezierSides";
 
 export type Bezier = [number, number, number, number];
 
@@ -60,7 +61,7 @@ export type BezierEditorProps = {
  * Bezier Editor — 控制点牵拉一根有弹性的线 (Handoff §5.5)
  */
 export function BezierEditor({ value, onChange, size = 200, showInputs = true, showPresets = true, showPreview = true, showTrack = true, presetPicker = "select", feel: local }: BezierEditorProps) {
-  const { p, t, deform } = useFeel("bezier", local);
+  const { p, t, deform, reduced } = useFeel("bezier", local);
   const plotClipId = useId();
   const pad = 10;
   const S = size;
@@ -181,6 +182,7 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
           </defs>
           <rect className="at-bezier-plot" x={sx(0)} y={sy(1)} width={S} height={S} rx={8} />
           <g clipPath={`url(#${plotClipId})`}>
+            <BezierSides values={v.map(a => a.mv)} dragging={dragging} size={S} x={sx(0)} y={sy(1)} reduced={reduced || !deform} spring={p.sideSpring} />
             {grid.map((g) => (
               <g key={g}>
                 <line className="at-bezier-grid" x1={sx(g)} x2={sx(g)} y1={sy(0)} y2={sy(1)} />
@@ -211,6 +213,7 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
                 onPointerMove={move(i)}
                 onPointerUp={up(i)}
                 onPointerCancel={up(i)}
+                onLostPointerCapture={up(i)}
                 onPointerEnter={() => hoverOn(i === 1 ? hov1 : hov2, true)}
                 onPointerLeave={() => dragging.current !== i && hoverOn(i === 1 ? hov1 : hov2, false)}
                 onFocus={() => hoverOn(i === 1 ? hov1 : hov2, true)}

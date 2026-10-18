@@ -61,6 +61,151 @@ export function profilePath(xs: number[], half: (x: number) => number, cy: (x: n
   return `${top}${bottom}Z`;
 }
 
+/** Separate edges let a neighbour yield on its near side without moving its far side. */
+export function edgeProfilePath(xs: number[], top: (x: number) => number, bottom: (x: number) => number) {
+  if (xs.length < 2) return "";
+  return xs.map((x, i) => `${i ? "L" : "M"}${f(x)} ${f(top(x))}`).join("")
+    + [...xs].reverse().map(x => `L${f(x)} ${f(bottom(x))}`).join("") + "Z";
+}
+
+/** Leave small lifts intact; approach the ceiling with C2 continuity rather
+ * than clipping a flat plateau or introducing a hard bend into the contour. */
+function limitTimelineLift(value: number, limit: number) {
+  if (limit <= 0) return 0;
+  const magnitude = Math.abs(value), knee = limit * 0.75;
+  if (magnitude <= knee) return value;
+  const span = limit - knee, t = (magnitude - knee) / span;
+  return Math.sign(value) * (knee + span * t / Math.hypot(1, t));
+}
+
+/** The intrinsic bar contour, before neighbours push it. Drawing and pressure
+ * share this exact shape, including press spread, resize thickness and pluck. */
+export function timelineBarProfile(i: {
+  left: number; right: number; minX: number; maxX: number; cy: number; baseHalf: number;
+  spread: number; thin: number; bulge: number; bulgeX: number; sigma: number;
+  pluck: number; pluckX: number; maxLift: number;
+}) {
+  const left = clamp(i.left - i.spread, i.minX, i.maxX);
+  const right = clamp(i.right + i.spread, left, i.maxX);
+  const length = Math.max(1, right - left);
+  // A very narrow ellipse has less room for extra height. Tighten smoothly
+  // below one resting bar-height of width, without changing its layout slot.
+  const widthRatio = clamp((right - left) / Math.max(1, i.baseHalf * 2), 0, 1);
+  const maxLift = Math.max(0, i.maxLift);
+  const widthLimit = maxLift * widthRatio ** 3 * (widthRatio * (6 * widthRatio - 15) + 10);
+  // Bound the combined outward motion, including resize thickness and pluck.
+  // One gain for the whole profile preserves its curved crest and closed caps.
+  const pressLift = i.spread * 0.5;
+  const demand = Math.max(0, pressLift) + Math.max(0, i.baseHalf + pressLift) * Math.max(0, i.thin - 1)
+    + Math.max(0, i.bulge) + Math.abs(i.pluck);
+  const liftScale = demand > 0 ? limitTimelineLift(demand, widthLimit) / demand : 1;
+  const gate = (x: number) => {
+    const u = clamp(Math.min(x - left, right - x) / Math.max(1, Math.min(i.baseHalf, length / 2)), 0, 1);
+    return u * u * u * (u * (6 * u - 15) + 10);
+  };
+  // Compare corresponding points on the cap after horizontal spread. Comparing
+  // against the old x endpoints mistakes sideways travel for a tall vertical
+  // bulge and produces a pressure spike at each old endpoint.
+  const capRadius = Math.max(0.001, Math.min(i.baseHalf, (right - left) / 2));
+  const baseHalf = (x: number) => x <= left || x >= right ? 0
+    : capHalf(x, left, right, capRadius, capRadius) * i.baseHalf / capRadius;
+  const half = (x: number) => {
+    if (x <= left || x >= right) return 0;
+    const u = clamp((x - left) / length, 0, 1);
+    const body = (i.baseHalf + i.spread * 0.5) * (1 + (i.thin - 1) * Math.sin(Math.PI * u));
+    // Scale the closed capsule instead of adding height inside a fixed-radius
+    // cap, which otherwise leaves a step at its vertical tip while pressed.
+    const base = baseHalf(x);
+    const target = base * body / Math.max(0.001, i.baseHalf) + i.bulge * gaussian(x - i.bulgeX, i.sigma) * gate(x);
+    return Math.max(0, base + (target - base) * liftScale);
+  };
+  const center = (x: number) => i.cy + i.pluck * liftScale * Math.sin(Math.PI * clamp((x - left) / length, 0, 1))
+    * gaussian(x - i.pluckX, Math.max(12, length * 0.35));
+  return {
+    left, right, gate, half, maxLift, liftLimit: widthLimit,
+    pressureStep: Math.max(4, i.baseHalf * 0.75),
+    cy: i.cy,
+    top: (x: number) => center(x) - half(x),
+    bottom: (x: number) => center(x) + half(x),
+    restTop: (x: number) => i.cy - baseHalf(x),
+    restBottom: (x: number) => i.cy + baseHalf(x),
+    changing: Math.abs(i.spread) + Math.abs(i.thin - 1) + Math.abs(i.bulge) + Math.abs(i.pluck) > 0.001,
+  };
+}
+
+export type TimelinePressure = {
+  id: string; originY: number; reach: number; profile: ReturnType<typeof timelineBarProfile>;
+};
+
+/** Apply neighbour pressure without inverting a narrow bar or spending the
+ * outward lift budget twice when its own animation is still recovering. */
+export function timelineBarEdge(shape: ReturnType<typeof timelineBarProfile>, x: number, side: -1 | 1, pressure: number) {
+  const y = side < 0 ? shape.top(x) : shape.bottom(x);
+  const maxYield = shape.half(x) * 0.7;
+  const offset = clamp(pressure, -maxYield, maxYield) * shape.gate(x);
+  if (side * offset <= 0) return y + offset;
+  const rest = side < 0 ? shape.restTop(x) : shape.restBottom(x);
+  const remaining = Math.max(0, shape.liftLimit - side * (y - rest));
+  return y + side * limitTimelineLift(side * offset, remaining);
+}
+
+// A compact Gaussian approximation. The shoulder extends past the physical
+// cap, so a neighbour turns gradually instead of stopping at that cap's x.
+const TIMELINE_PRESSURE_KERNEL = [1, 8, 28, 56, 70, 56, 28, 8, 1];
+
+/** Local, compact vertical falloff: the next near edge yields, its far edge does not. */
+export function timelineYield(x: number, y: number, sources: TimelinePressure[], strength: number, exclude?: string) {
+  let displacement = 0, maxLift = 0;
+  for (const source of sources) {
+    if (source.id === exclude) continue;
+    const shape = source.profile;
+    maxLift = Math.max(maxLift, shape.maxLift);
+    const shoulder = shape.pressureStep * 4;
+    if (x <= shape.left - shoulder || x >= shape.right + shoulder) continue;
+    const direction = Math.sign(y - source.originY - shape.cy);
+    let softened = 0;
+    for (let tap = 0; tap < TIMELINE_PRESSURE_KERNEL.length; tap++) {
+      const sx = x + (tap - 4) * shape.pressureStep;
+      if (sx <= shape.left || sx >= shape.right) continue;
+      const edge = direction < 0 ? shape.top(sx) : shape.bottom(sx);
+      const rest = direction < 0 ? shape.restTop(sx) : shape.restBottom(sx);
+      const outward = Math.max(0, direction * (edge - rest));
+      const positive = clamp(outward / 0.25, 0, 1);
+      const expansion = outward * positive ** 3 * (positive * (6 * positive - 15) + 10) * shape.gate(sx);
+      // Keep vertical decay tied to each sample's live edge. Horizontal
+      // softening cannot spread pressure onto a neighbour's far side.
+      const distance = Math.max(0, direction * (y - source.originY - edge));
+      const u = clamp(distance / Math.max(1, source.reach), 0, 1);
+      const falloff = 1 - u * u * u * (u * (6 * u - 15) + 10);
+      softened += TIMELINE_PRESSURE_KERNEL[tap] * expansion * falloff;
+    }
+    displacement += direction * softened * strength / 256;
+  }
+  // Also bound amplified avoidance and overlapping sources during transitions.
+  return limitTimelineLift(displacement, maxLift);
+}
+
+/** Concentric resting corners: frame radius = bar radius + the shell gap. */
+export function timelineFrame(width: number, height: number, rowHeight: number, barInset: number, edgePadding: number,
+  sources: TimelinePressure[], strength: number) {
+  if (width <= 1 || height <= 1) return { d: "", radius: 0 };
+  const half = (height - 1) / 2;
+  const barHalf = Math.max(3, rowHeight / 2 - barInset);
+  const radius = Math.max(0.5, Math.min(barHalf + Math.min(barInset, edgePadding) - 0.5, half, (width - 1) / 2));
+  const cy = height / 2;
+  const shape = (x: number) => {
+    const dx = Math.min(x - 0.5, width - 0.5 - x);
+    return dx >= radius ? half : half - radius + Math.sqrt(Math.max(0, radius ** 2 - (radius - dx) ** 2));
+  };
+  const edge = (x: number, side: -1 | 1) => {
+    const y = cy + side * shape(x);
+    const u = clamp(Math.min(x - 0.5, width - 0.5 - x) / radius, 0, 1);
+    const gate = u * u * (3 - 2 * u);
+    return y + timelineYield(x, y, sources, strength) * gate;
+  };
+  return { d: edgeProfilePath(samples(0.5, width - 0.5, radius + 1, 1), x => edge(x, -1), x => edge(x, 1)), radius };
+}
+
 /** Rounded-corner cap: multiplies a body half-height so the shape closes at x0/x1 with radius r. */
 export function capHalf(x: number, x0: number, x1: number, bodyHalf: number, r: number) {
   const rr = Math.max(0.001, Math.min(r, bodyHalf, (x1 - x0) / 2));

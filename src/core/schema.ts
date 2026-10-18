@@ -1,4 +1,5 @@
 import type { SharedFeel, SpringName, SpringToken } from "../tokens/tokens";
+import { valueRoll } from "../tokens/tokens";
 
 /**
  * Feel-parameter schema. Each component's "可调手感参数" (Handoff §5) is
@@ -84,12 +85,15 @@ export const componentSchemas = {
     n("bgShift", "底色变化", "外框", 0, 1, 0.01, { default: 1 }),
     n("highlight", "高光强度", "外框", 0, 1, 0.01, { default: 1 }),
     n("scrubSensitivity", "拖动灵敏度", "拖动调值", 0.05, 2, 0.05, { default: 0.95, unit: "步/px" }),
+    n("rollDuration", "逐位滚动时长", "拖动调值", 100, 600, 20, { default: valueRoll.duration, unit: "ms", hint: "只有变化的数位滚动；增加向上，减少向下，连续拖动从当前位置接续" }),
   ],
   timeline: [
     n("edgePadding", "两端安全区", "布局", 0, 24, 0.5, { default: 2.5, unit: "px", hint: "0 刻度和结束刻度距离轨道边缘的留白，横条与刻度一起内移" }),
     n("barInset", "横条间距", "布局", 0, 8, 0.25, { default: 2.5, unit: "px", hint: "横条到所在行上下边界的距离；默认对齐 Slider 内外层间距，横条高度 = 行高 − 2 × 间距" }),
+    n("maxLift", "撑高上限", "形变", 0, 8, 0.25, { default: 4, unit: "px", hint: "每侧额外撑高的最大距离，合并限制悬停、按压、压缩和拨弦；极窄横条进一步收紧，接近上限时柔和减弱，相邻避让也受此限制" }),
     n("bulge", "局部撑起", "划过", 0, 6, 0.25, { default: 2.25, unit: "px", hint: "以指针位置为中心，横条上下边缘向外鼓起" }),
     n("bulgeWidth", "撑起范围", "划过", 0.3, 3, 0.05, { default: 1.5, unit: "×高", hint: "高斯衰减宽度，横条高度的倍数" }),
+    n("avoidance", "相邻避让", "划过", 0, 1.5, 0.05, { default: 1, unit: "×", hint: "相邻横条和面板边缘在鼓包位置退让；只影响靠近的一侧，随垂直距离衰减" }),
     n("pluckAmp", "拨弦幅度", "划过", 0, 10, 0.5, { default: 8, unit: "px", hint: "会乘以被动强度" }),
     sd("pluckSpring", "拨弦弹簧", "划过", { visualDuration: 0.25, bounce: 0.5 }),
     n("stretchThin", "拉伸变细", "拉伸", 0, 1, 0.01, { default: 0.5 }),
@@ -109,6 +113,7 @@ export const componentSchemas = {
     n("bulgeWidth", "撑起范围", "包裹", 0.2, 2, 0.05, { default: 0.6, unit: "×高", hint: "高斯衰减宽度，按钮高度的倍数" }),
   ],
   bezier: [
+    sd("sideSpring", "适形回弹", "两侧适形", { visualDuration: 0.4, bounce: 0.2 }, "拖动时只推开受挤压的一侧，松手后另一侧弹回，保留 2.5px 法线间隙"),
     n("pointHoverScale", "控制点放大", "控制点", 1, 2, 0.01, { default: 1.35, unit: "×" }),
     n("lineThin", "连接线变细", "控制点", 0, 1, 0.01, { inherit: "volumeConservation" }),
     n("edgeResistance", "边界阻力", "控制点", 0, 1, 0.01, { inherit: "edgeResistance" }),
@@ -124,6 +129,7 @@ export const componentSchemas = {
   ],
   segmented: [
     n("bulgeHeight", "悬停鼓包", "鼓包", 0, 6, 0.25, { default: 3.5, unit: "px", hint: "选项上下边缘向外轻微鼓起，文字保持原位" }),
+    n("focusThin", "远端收窄", "鼓包", 0, 2, 0.1, { default: 0.9, unit: "px", hint: "离悬停位置越远，上下边缘越轻微内收；与选中底色同步，文字和命中区不变" }),
     n("lingerDuration", "残留消退", "鼓包", 100, 1000, 20, { default: 800, unit: "ms", hint: "点击后鼓包保留当前形态，再逐渐回落的时间" }),
     sd("hoverSpring", "鼓包响应", "鼓包", { visualDuration: 0.5, bounce: 0.3 }),
     sd("headSpring", "前沿", "选中底色", { visualDuration: 0.3, bounce: 0 }),
@@ -152,6 +158,8 @@ export const componentSchemas = {
   ],
   tabs: [
     s("indicatorSpring", "指示条跟随", "标签", "snappy"),
+    n("indicatorStretch", "指示条拖尾", "标签", 0, 1, 0.05, { default: 0.75, hint: "前沿先走、后沿随后收拢；越大拉伸越明显" }),
+    n("stretchThin", "拉伸变细", "标签", 0, 1, 0.05, { default: 0.6, hint: "指示线拉长时变细，停下恢复原厚度" }),
     n("contentOffset", "内容位移", "内容", 0, 16, 1, { default: 6, unit: "px" }),
     n("contentDuration", "内容过渡", "内容", 100, 600, 20, { default: 180, unit: "ms" }),
   ],

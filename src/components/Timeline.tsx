@@ -1,7 +1,7 @@
-import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { motion, useMotionValue, useTransform, type MotionValue } from "motion/react";
 import { useFeel, type FeelRuntime } from "../core/feel";
-import { capHalf, clamp, gaussian, profilePath, roundTo, samples } from "../core/geometry";
+import { clamp, edgeProfilePath, roundTo, samples, timelineBarEdge, timelineBarProfile, timelineFrame, timelineYield, type TimelinePressure } from "../core/geometry";
 import { useAnimated, useSize } from "../core/hooks";
 import type { ResolvedFeel } from "../core/schema";
 
@@ -66,6 +66,8 @@ export function Timeline({
   const [trackRef, { width: TW }] = useSize<HTMLDivElement>();
   const [dragging, setDragging] = useState<string | null>(null);
   const frozen = useRef<number | null>(null);
+  const pressure = useMotionValue<TimelinePressure[]>([]);
+  const clipId = useId().replace(/:/g, "");
 
   const auto = useMemo(() => niceCeil(Math.max(400, ...items.map((i) => (i.delay + i.duration) * 1.12))), [items]);
   // Linked items can grow beyond the range captured at pointer-down. Grow the
@@ -84,6 +86,10 @@ export function Timeline({
   const ph = playhead ?? fallback;
   const phX = useTransform(ph, (v: number) => inset + v * scale);
   const phOpacity = useTransform(ph, (v: number) => (v > 0 && v < R ? 1 : 0));
+  const frameHeight = items.length * rowHeight;
+  const frame = useTransform(pressure, sources => timelineFrame(TW, frameHeight, rowHeight, feel.p.barInset, inset,
+    sources, feel.deform ? feel.p.avoidance : 0).d);
+  const frameRadius = timelineFrame(TW, frameHeight, rowHeight, feel.p.barInset, inset, [], 0).radius + 0.5;
 
   return (
     <div className="at-tl" data-at-interactive role="group" aria-label={aria["aria-label"]} style={{ ["--at-tl-label" as string]: `${labelWidth}px` }}>
@@ -105,15 +111,21 @@ export function Timeline({
             </div>
           ))}
         </div>
-        <div className="at-tl-track" ref={trackRef}>
-          <div className="at-tl-grid-clip" aria-hidden>
-            {ticks.filter((v) => v > 0 && v < R).map((v) => (
-              <span key={v} className="at-tl-grid" style={{ left: inset + v * scale }} />
-            ))}
-          </div>
-          {items.map((it) => (
+        <div className="at-tl-track" ref={trackRef} style={{ borderRadius: frameRadius }}>
+          <svg className="at-tl-frame" width={Math.max(1, TW)} height={Math.max(1, frameHeight)} aria-hidden>
+            <defs><clipPath id={clipId}><motion.path d={frame} /></clipPath></defs>
+            <motion.path className="at-tl-surface" d={frame} />
+            <g clipPath={`url(#${clipId})`}>
+              {ticks.filter(v => v > 0 && v < R).map(v => <line key={v} className="at-tl-grid"
+                x1={inset + v * scale} x2={inset + v * scale} y1={-12} y2={frameHeight + 12} />)}
+            </g>
+            <motion.path className="at-tl-frame-line" d={frame} />
+          </svg>
+          {items.map((it, index) => (
             <Bar
               key={it.id}
+              index={index}
+              pressure={pressure}
               item={it}
               scale={scale}
               rowHeight={rowHeight}
@@ -145,6 +157,8 @@ export function Timeline({
 }
 
 type BarProps = {
+  index: number;
+  pressure: MotionValue<TimelinePressure[]>;
   item: TimelineItem;
   scale: number;
   rowHeight: number;
@@ -163,12 +177,14 @@ type BarProps = {
 
 type Mode = "move" | "left" | "right";
 
-function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, feel, suppressPluck, unit, onChange, onDragStart, onDragEnd }: BarProps) {
+function Bar({ item, index, pressure, scale, rowHeight, width, inset, limit, step, minDuration, feel, suppressPluck, unit, onChange, onDragStart, onDragEnd }: BarProps) {
   const { p, t, deform, passive } = feel;
   const thin = useAnimated(1);
   const press = useAnimated(0);
   const pluck = useAnimated(0);
   const pluckAt = useRef({ x: 0, dir: 1, amp: 0 });
+  const pluckTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(pluckTimer.current), []);
   // Bars fill the lane, leaving the Slider's shell gap to the lane edges (外壳包裹内芯).
   const BAR_H = Math.max(6, rowHeight - 2 * p.barInset);
   const swell = useAnimated(0);
@@ -183,29 +199,41 @@ function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, f
   const x1 = inset + (item.delay + item.duration) * scale;
   const cy = rowHeight / 2;
 
-  const d = useTransform([thin.mv, press.mv, pluck.mv, swell.mv, swellX.mv] as const, ([f, pr, pl, sw, sx]: number[]) => {
+  const profile = useTransform(() => timelineBarProfile({
+    left: x0, right: x1, minX: inset, maxX: width - inset, cy, baseHalf: BAR_H / 2,
+    maxLift: p.maxLift,
+    spread: p.pressSpread * press.mv.get() * deform,
+    thin: deform ? thin.mv.get() : 1,
+    bulge: p.bulge * swell.mv.get() * deform, bulgeX: swellX.mv.get(), sigma: Math.max(6, BAR_H * p.bulgeWidth),
+    pluck: deform ? pluck.mv.get() * pluckAt.current.amp * pluckAt.current.dir : 0,
+    pluckX: pluckAt.current.x,
+  }));
+
+  useLayoutEffect(() => {
+    const publish = () => {
+      const others = pressure.get().filter(source => source.id !== item.id);
+      const shape = profile.get();
+      if (shape.changing) others.push({ id: item.id, originY: index * rowHeight, profile: shape, reach: BAR_H * 0.95 });
+      pressure.set(others);
+    };
+    publish();
+    const unsubscribe = profile.on("change", publish);
+    return () => {
+      unsubscribe();
+      pressure.set(pressure.get().filter(source => source.id !== item.id));
+    };
+  }, [pressure, profile, item.id, index, rowHeight, BAR_H]);
+
+  const d = useTransform(() => {
+    const shape = profile.get();
+    const sources = pressure.get();
     if (scale <= 0) return "";
-    const spread = p.pressSpread * pr * deform;
-    const X0 = clamp(x0 - spread, inset, width - inset);
-    const X1 = clamp(x1 + spread, X0, width - inset);
-    const len = Math.max(1, X1 - X0);
-    const half0 = BAR_H / 2 + spread * 0.5;
-    const { x: px, dir, amp } = pluckAt.current;
-    const sig = Math.max(12, len * 0.35);
-    // Hover swell: around the pointer the bar pushes back toward the lane edge.
-    const swellAmp = p.bulge * sw * deform;
-    const swellSig = Math.max(6, BAR_H * p.bulgeWidth);
-    const body = (x: number) => {
-      const u = clamp((x - X0) / len, 0, 1);
-      return half0 * (1 + (f - 1) * Math.sin(Math.PI * u)) + swellAmp * gaussian(x - sx, swellSig);
+    const edge = (x: number, side: -1 | 1) => {
+      const y = side < 0 ? shape.top(x) : shape.bottom(x);
+      const offset = timelineYield(x, index * rowHeight + y, sources, deform ? p.avoidance : 0, item.id);
+      return timelineBarEdge(shape, x, side, offset);
     };
-    const half = (x: number) => capHalf(x, X0, X1, body(x), BAR_H / 2);
-    const cyf = (x: number) => {
-      if (!pl) return cy;
-      const u = clamp((x - X0) / len, 0, 1);
-      return cy + pl * amp * dir * Math.sin(Math.PI * u) * gaussian(x - px, sig);
-    };
-    return profilePath(samples(X0, X1, BAR_H / 2 + 1, 1.5), half, cyf);
+    return edgeProfilePath(samples(shape.left, shape.right, BAR_H / 2 + 1, 1.5), x => edge(x, -1), x => edge(x, 1));
   });
   const filter = useTransform(press.mv, (v) => (v > 0.01 ? `brightness(${1 - p.pressDarken * v})` : "none"));
 
@@ -221,7 +249,8 @@ function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, f
       amp: p.pluckAmp * passive * deform * intensity,
     };
     pluck.to(1, { duration: 0.05, ease: "easeOut" } as never);
-    setTimeout(() => pluck.to(0, t(p.pluckSpring)), 50);
+    clearTimeout(pluckTimer.current);
+    pluckTimer.current = setTimeout(() => pluck.to(0, t(p.pluckSpring)), 50);
   };
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>, m: Mode) => {
@@ -235,7 +264,9 @@ function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, f
     drag.current = { mode: m, x: e.clientX, delay: item.delay, duration: item.duration, scale };
     setMode(m);
     onDragStart();
+    clearTimeout(pluckTimer.current);
     pluck.set(0);
+    swell.to(1, t(p.recover));
     if (m === "move") press.to(1, t(p.recover));
   };
 
@@ -264,12 +295,17 @@ function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, f
     if (delay !== item.delay || duration !== item.duration) onChange({ delay, duration });
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
     if (!drag.current) return;
     drag.current = null;
     setMode(null);
     thin.to(1, t(p.recover));
     press.to(0, t(p.recover));
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (e.type !== "pointerup" || e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+      setHover(false);
+      swell.to(0, t(p.recover, { exit: true }));
+    }
     onDragEnd();
   };
 
@@ -287,7 +323,7 @@ function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, f
   const edgeW = Math.min(8, Math.max(4, (x1 - x0) / 4));
 
   return (
-    <div className="at-tl-row" data-active={mode ? true : undefined} style={{ height: rowHeight }}>
+    <div className="at-tl-row" data-item={item.id} data-active={mode ? true : undefined} style={{ height: rowHeight }}>
       <svg className="at-tl-svg" width={Math.max(1, width)} height={rowHeight} aria-hidden>
         <motion.path className="at-tl-bar" d={d} style={{ filter }} data-active={mode ? true : undefined} data-hover={hover || undefined} />
       </svg>
@@ -307,7 +343,7 @@ function Bar({ item, scale, rowHeight, width, inset, limit, step, minDuration, f
         }}
         onPointerLeave={() => {
           setHover(false);
-          swell.to(0, t(p.recover, { exit: true }));
+          if (!drag.current) swell.to(0, t(p.recover, { exit: true }));
         }}
         onPointerMove={(e) => {
           swellX.to(localX(e), drag.current ? { duration: 0 } : t(p.recover));

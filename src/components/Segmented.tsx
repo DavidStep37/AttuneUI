@@ -74,7 +74,10 @@ export function Segmented<V extends string>({ options, value, onChange, size = "
 
   const h = box.height - INSET * 2;
   const cy = box.height / 2;
-  const bump = (x: number, amount: number, centre: number, width: number) => p.bulgeHeight * deform * amount * gaussian(x - centre, Math.max(8, width * 0.28));
+  const bump = (x: number, amount: number, centre: number, width: number) => {
+    const focus = gaussian(x - centre, Math.max(8, width * 0.28));
+    return (p.bulgeHeight * focus - p.focusThin * (1 - focus)) * deform * amount;
+  };
   const edgeGate = (x: number, left: number, right: number) => {
     const u = clamp(Math.min(x - left, right - x) / Math.max(1, Math.min(12, (right - left) / 2)), 0, 1);
     return u * u * (3 - 2 * u);

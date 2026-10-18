@@ -141,8 +141,8 @@ export const spring = {
 export type SpringName = keyof typeof spring;
 
 export const valueRoll = {
-  distance: 0.6, // em
-  blur: 2, // px
+  duration: 240, // ms per digit-wheel transition
+  blur: 0.6, // px, only on moving digits
 };
 
 /* --------------------------------------------------------- shared feel */

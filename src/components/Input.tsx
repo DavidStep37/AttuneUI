@@ -248,7 +248,7 @@ export function NumberInput({
               />
             </>
           ) : (
-            <ValueRoll value={value} text={text} />
+            <ValueRoll value={value} text={text} duration={p.rollDuration} />
           )}
         </span>
       </div>

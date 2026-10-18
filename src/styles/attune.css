@@ -58,23 +58,47 @@
 .at-roll {
   display: inline-flex;
   position: relative;
-  /* Layers already fade out. Allow their 0.6em travel and blur to paint
-     outside the line box without cutting off the tops/bottoms of digits. */
   overflow: visible;
   vertical-align: top;
 }
 .at-roll-inner {
   display: inline-flex;
   position: relative;
+  line-height: inherit;
 }
-.at-roll-layer {
-  display: inline-block;
-  white-space: pre;
+.at-roll-readable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
-.at-roll-exit {
+.at-roll-digit {
+  position: relative;
+  flex: none;
+  width: 1ch;
+  height: calc(1lh + 6px);
+  margin-block: -3px;
+  overflow: hidden;
+  mask-image: linear-gradient(transparent, #000 3px, #000 calc(100% - 3px), transparent);
+}
+.at-roll-strip {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  width: 100%;
+  height: 1lh;
+}
+.at-roll-strip > span {
   position: absolute;
   left: 0;
-  top: 0;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+}
+.at-roll-symbol {
+  white-space: pre;
 }
 
 /* ------------------------------------------------------------ Slider */
@@ -618,23 +642,19 @@
   position: relative;
   flex: 1;
   min-width: 0;
-  border-radius: var(--at-radius-md);
-  background: var(--at-color-surface-sunken);
-  box-shadow: inset 0 0 0 1px var(--at-color-border-subtle);
 }
-.at-tl-grid {
+.at-tl-frame {
   position: absolute;
+  left: 0;
   top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--at-color-border-subtle);
-}
-.at-tl-grid-clip {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: inherit;
+  overflow: visible;
   pointer-events: none;
+}
+.at-tl-surface { fill: var(--at-color-surface-sunken); }
+.at-tl-frame-line { fill: none; stroke: var(--at-color-border-subtle); stroke-width: 1px; }
+.at-tl-grid {
+  stroke: var(--at-color-border-subtle);
+  stroke-width: 1px;
 }
 .at-tl-row {
   position: relative;
@@ -741,6 +761,10 @@
 }
 .at-bezier-plot {
   fill: var(--at-color-surface-sunken);
+}
+.at-bezier-side {
+  fill: var(--at-color-surface-panel);
+  pointer-events: none;
 }
 .at-bezier-border {
   fill: none;

@@ -21,7 +21,8 @@ const contained = state => {
   if (state.label) assert(state.label.left >= 0 && state.label.right <= 0 && !state.label.clipped, 'Readout fits without clipping its text');
 };
 const drag = async (root, row, part, distance) => {
-  const target = await page.$(`${root} .at-tl-row:nth-of-type(${row}) ${part}`);
+  const rows = await page.$$(`${root} .at-tl-row`);
+  const target = await rows[row - 1].$(part);
   await target.evaluate(e => e.scrollIntoView({ block: 'center' }));
   const r = await target.boundingBox();
   const x = r.x + r.width / 2, y = r.y + r.height / 2;
@@ -44,10 +45,9 @@ try {
     await page.goto(url, { waitUntil: 'networkidle0' });
     await page.click('.pg-header [role=radio]:nth-child(3)');
     await page.waitForSelector('.pg-sample-tl');
-    // The background grid is the first div; rows start at nth-of-type(2).
-    await drag('.pg-sample-tl', 3, '.at-tl-hit-body', 500);
-    await drag('.pg-sample-tl', 7, '.at-tl-hit-edge[data-side="right"]', 400);
-    await drag('.pg-sample-tl', 2, '.at-tl-hit-body', -500);
+    await drag('.pg-sample-tl', 2, '.at-tl-hit-body', 500);
+    await drag('.pg-sample-tl', 6, '.at-tl-hit-edge[data-side="right"]', 400);
+    await drag('.pg-sample-tl', 1, '.at-tl-hit-body', -500);
     console.log(`PASS ${width}px: linked delays/durations, both boundaries, readout containment, stable range`);
   }
   await page.setViewport({ width: 1440, height: 1000 });
@@ -69,8 +69,8 @@ try {
     ReactDOM.createRoot(host).render(React.createElement(Fixture));
   });
   await page.waitForSelector('#fixed-timeline-test .at-tl-hit');
-  await drag('#fixed-timeline-test', 2, '.at-tl-hit-body', 900);
-  await drag('#fixed-timeline-test', 2, '.at-tl-hit-edge[data-side="right"]', 900);
+  await drag('#fixed-timeline-test', 1, '.at-tl-hit-body', 900);
+  await drag('#fixed-timeline-test', 1, '.at-tl-hit-edge[data-side="right"]', 900);
   assert.equal(await page.$eval('#fixed-timeline-test .at-tl-hit', e => e.getAttribute('aria-valuenow')), '800');
   await page.focus('#fixed-timeline-test .at-tl-hit'); await page.keyboard.press('ArrowRight');
   assert.equal(await page.$eval('#fixed-timeline-test .at-tl-hit', e => e.getAttribute('aria-valuenow')), '800');
