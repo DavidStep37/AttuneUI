@@ -16,3 +16,5 @@ export { Checkbox, type CheckboxProps } from "./components/Checkbox";
 export { Alert, Message, Toast, type FeedbackProps, type DismissReason } from "./components/Feedback";
 export { Tabs, type TabsProps, type TabItem } from "./components/Tabs";
 export { Panel, PanelGroup, Row, SliderField, NumberField, SpringField, ParamControls } from "./components/Panel";
+export { MotionWorkbench, type MotionWorkbenchProps } from "./workbench/MotionWorkbench";
+export { createMotionConfig, serializeMotionConfig, type MotionConfig, type MotionDefinition, type MotionField, type MotionParam, type MotionParams } from "./workbench/model";

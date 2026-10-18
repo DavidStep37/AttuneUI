@@ -25,6 +25,11 @@
           "target": "@components/attune/components/BezierEditor.tsx"
         },
         {
+          "path": "src/components/BezierSides.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/BezierSides.tsx"
+        },
+        {
           "path": "src/components/Button.tsx",
           "type": "registry:file",
           "target": "@components/attune/components/Button.tsx"
@@ -90,6 +95,11 @@
           "target": "@components/attune/components/ValueRoll.tsx"
         },
         {
+          "path": "src/core/bezierSides.ts",
+          "type": "registry:file",
+          "target": "@components/attune/core/bezierSides.ts"
+        },
+        {
           "path": "src/core/feel.tsx",
           "type": "registry:file",
           "target": "@components/attune/core/feel.tsx"
@@ -133,6 +143,21 @@
           "path": "src/styles/attune.css",
           "type": "registry:file",
           "target": "@components/attune/styles/attune.css"
+        },
+        {
+          "path": "src/workbench/MotionWorkbench.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/workbench/MotionWorkbench.tsx"
+        },
+        {
+          "path": "src/workbench/model.ts",
+          "type": "registry:file",
+          "target": "@components/attune/workbench/model.ts"
+        },
+        {
+          "path": "src/workbench/workbench.css",
+          "type": "registry:file",
+          "target": "@components/attune/workbench/workbench.css"
         }
       ],
       "docs": "Preview only. Requires React 19 and react-dom. Import the installed attune/styles/attune.css and wrap controls in AttuneRoot. Do not call injectTokens for a scoped mount. See getting-started.md. The public license has not yet been selected."

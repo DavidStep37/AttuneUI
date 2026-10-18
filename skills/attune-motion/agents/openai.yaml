@@ -1,0 +1,4 @@
+interface:
+  display_name: "Attune Motion"
+  short_description: "用 AttuneUI 原生磨砂面板精调页面动效、独立重播并复制完整参数"
+  default_prompt: "使用 $attune-motion 为当前页面编写动效并挂载可实时调参、独立重播和复制 JSON 的 AttuneUI 面板。"

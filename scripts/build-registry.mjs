@@ -5,7 +5,7 @@ import path from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const fromRoot = (...parts) => path.join(root, ...parts);
 const files = ['src/index.ts'];
-for (const directory of ['components', 'core', 'tokens', 'styles']) {
+for (const directory of ['components', 'core', 'tokens', 'styles', 'workbench']) {
   for (const entry of (await readdir(fromRoot('src', directory))).sort()) {
     if (/\.(tsx?|css)$/.test(entry)) files.push(`src/${directory}/${entry}`);
   }
