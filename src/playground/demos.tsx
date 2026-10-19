@@ -11,6 +11,7 @@ import { ValueRoll } from "../components/ValueRoll";
 import { Checkbox } from "../components/Checkbox";
 import { Alert, Message, Toast, type DismissReason } from "../components/Feedback";
 import { Tabs } from "../components/Tabs";
+import { ScrollArea } from "../components/ScrollArea";
 import type { ComponentId } from "../core/schema";
 import { IconCopy, IconMinus, IconPlay, IconPlus, IconReset } from "./icons";
 import { useDemo } from "./store";
@@ -124,7 +125,7 @@ function ButtonDemo({ variant }: { variant: Variant }) {
 function BezierDemo({ variant }: { variant: Variant }) {
   const [v, setV] = useDemo<Bezier>("bezier.value", [0.2, 0, 0, 1]);
   return variant === "card" ? (
-    <BezierEditor value={v} onChange={setV} size={124} showInputs={false} showPresets={false} showTrack={false} />
+    <BezierEditor value={v} onChange={setV} size={124} showInputs={false} showPresets={false} />
   ) : (
     <div className="pg-bezier-stage">
       <BezierEditor value={v} onChange={setV} size={240} />
@@ -301,12 +302,20 @@ function TabsDemo({ variant }: { variant: Variant }) {
   const [tab, setTab] = useDemo("tabs.active", "overview");
   return <div className="pg-rows pg-tabs-demo" data-variant={variant}>
     <Tabs aria-label="项目设置" value={tab} onChange={setTab} items={[
-      { value: "overview", label: "概览", content: <div className="pg-tab-copy"><strong>让操作自然发生</strong><p>圆润轮廓、清晰层次，和一点恰到好处的弹性。</p><span>11 组组件 · 蓝调石墨灰</span></div> },
+      { value: "overview", label: "概览", content: <div className="pg-tab-copy"><strong>让操作自然发生</strong><p>圆润轮廓、清晰层次，和一点恰到好处的弹性。</p><span>12 组组件 · 蓝调石墨灰</span></div> },
       { value: "motion", label: "动效", content: <div className="pg-tab-copy"><strong>从当前状态继续</strong><p>切换标签时指示条平滑跟随，内容轻轻交接。</p><span>支持方向键、Home / End</span></div> },
       { value: "details", label: "细节", content: <div className="pg-tab-copy"><strong>留一点呼吸空间</strong><p>安全留白和统一边框，让精细操作更从容。</p><span>浅色 / 深色 · 减弱动效</span></div> },
       ...(variant === "stage" ? [{ value: "disabled", label: "未开放", content: null, disabled: true }] : []),
     ]} />
   </div>;
+}
+
+const scrollRows = ["卡片入场", "按钮悬停", "提示进出场", "列表展开", "标签切换", "开关吸附", "滑块拖尾", "曲线回弹", "时间轴拨弦", "复选回弹", "气泡消散", "分段流动", "数字滚动", "面板展开"];
+
+function ScrollbarDemo({ variant }: { variant: Variant }) {
+  return <ScrollArea className="pg-scroll-demo" data-variant={variant} viewportClassName="pg-scroll-demo-view">
+    {scrollRows.map((r, i) => <div key={r} className="pg-scroll-row"><span>{String(i + 1).padStart(2, "0")}</span>{r}<em>{240 + i * 40} ms</em></div>)}
+  </ScrollArea>;
 }
 
 export const demos: Record<ComponentId, (p: { variant: Variant }) => ReactNode> = {
@@ -321,6 +330,7 @@ export const demos: Record<ComponentId, (p: { variant: Variant }) => ReactNode> 
   checkbox: CheckboxDemo,
   feedback: FeedbackDemo,
   tabs: TabsDemo,
+  scrollbar: ScrollbarDemo,
 };
 
 export const hints: Record<ComponentId, string[]> = {
@@ -379,4 +389,5 @@ export const hints: Record<ComponentId, string[]> = {
   checkbox: ["悬停轻轻放大，按下收缩，选中标记带回弹出现", "支持未选、选中、半选和禁用状态；Space 切换", "全部效果与子项联动，部分选中时显示短横线"],
   feedback: ["入场：从下方可调距离向上弹出，透明度逐渐增加", "点击关闭：气泡放大、模糊并消散；自动关闭只模糊淡出", "Alert 常驻；Message 在当前位置出现；Toast 浮在页面上方", "悬停或键盘聚焦暂停自动关闭；支持减弱动效"],
   tabs: ["点击或方向键切换，底部指示条连续跟随", "内容轻微位移并淡入淡出，Home / End 跳到首尾标签", "禁用项跳过，Tab 键进入当前内容面板"],
+  scrollbar: ["滚动或指针进入区域：细滑块淡入，停下并离开后淡出", "指针靠近右侧：滑块变粗，浅色外轨道包裹它，出现白色抓取点", "拖动滑块滚动；点击空轨道，内容平滑滑到对应位置", "滚到顶或底后继续滚：滑块贴着端点被压短，停下后弹回", "仍是原生滚动：触控板、触摸、键盘和读屏行为不变"],
 };

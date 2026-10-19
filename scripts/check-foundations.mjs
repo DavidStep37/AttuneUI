@@ -32,7 +32,7 @@ try {
   await page.setViewport({ width: 1440, height: 1100 });
   await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'no-preference' }]);
   await page.goto(process.env.ATTUNE_URL ?? 'http://localhost:5188', { waitUntil: 'networkidle0' });
-  assert.equal(await page.$$('.pg-card').then(els => els.length), 11);
+  assert.equal(await page.$$('.pg-card').then(els => els.length), 12);
   const seg = `${card('segmented')} .at-seg`;
   const silhouette = () => page.$eval(seg + ' .at-seg-track', e => ({ path: e.getAttribute('d'), height: e.getBBox().height }));
   const rest = await silhouette();

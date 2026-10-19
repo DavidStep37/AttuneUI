@@ -1,32 +1,38 @@
 import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "motion/react";
-import { ChevronUp, Copy, Grip, Maximize2, Minimize2, PanelRight, Play, RotateCcw } from "lucide-react";
+import { Copy, Grip, Maximize2, Minimize2, Play, RotateCcw } from "lucide-react";
 import { AttuneRoot } from "../core/surface";
 import { Button } from "../components/Button";
 import { PanelGroup, Row, SliderField, NumberField } from "../components/Panel";
-import { Switch } from "../components/Switch";
+import { SwitchField } from "../components/Switch";
 import { Select } from "../components/Select";
+import { ScrollArea } from "../components/ScrollArea";
 import { BezierEditor, type Bezier } from "../components/BezierEditor";
 import { anchorPoint, anchors, clampPoint, nearestAnchor, serializeMotionConfig, type Anchor, type MotionConfig, type MotionDefinition, type MotionParam, type Point } from "./model";
 import "./workbench.css";
 
-type Mode = "minimized" | "floating" | "sidebar";
-type Placement = { anchor: Anchor; panel: Point | null };
+type Mode = "minimized" | "floating";
+/** Floating panel height: user-resizable from the bottom edge, remembered with its position. */
+const PANEL = { width: 360, defaultHeight: 660, minHeight: 260 };
+/** Toolbar: 28px buttons with an equal 12px optical inset on all four sides (grip dots sit ~2.7px inside their 16px box). */
+const TOOLBAR = { height: 52, width: 10 + 16 + 8 + 28 * 3 + 8 * 2 + 12 };
+type Placement = { anchor: Anchor; panel: Point | null; height: number | null };
 const readPlacement = (key: string): Placement => {
   try {
     const value = JSON.parse(localStorage.getItem(key) ?? "null");
     return { anchor: anchors.includes(value?.anchor) ? value.anchor : "bottom-center",
-      panel: Number.isFinite(value?.panel?.x) && Number.isFinite(value?.panel?.y) ? value.panel : null };
-  } catch { return { anchor: "bottom-center", panel: null }; }
+      panel: Number.isFinite(value?.panel?.x) && Number.isFinite(value?.panel?.y) ? value.panel : null,
+      height: Number.isFinite(value?.height) ? Math.max(PANEL.minHeight, value.height) : null };
+  } catch { return { anchor: "bottom-center", panel: null, height: null }; }
 };
 
 export type MotionWorkbenchProps = {
   definitions: MotionDefinition[];
   config: MotionConfig;
   onChange: (config: MotionConfig) => void;
-  /** Wrap the app's responsive layout root, including its header, so sidebar mode can push it. */
-  children: ReactNode;
+  /** The previewed page. Rendered as-is: the workbench floats above it and never reflows the host. */
+  children?: ReactNode;
   theme?: "light" | "dark" | "system";
 };
 
@@ -37,22 +43,24 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
   const [mode, setMode] = useState<Mode>("minimized");
   const [viewport, setViewport] = useState<Point>(() => ({ x: window.innerWidth, y: window.innerHeight }));
   const [dragPoint, setDragPoint] = useState<Point | null>(null);
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
   const [menu, setMenu] = useState(false);
   const [status, setStatus] = useState("");
   const [fallback, setFallback] = useState<string | null>(null);
   const shell = useRef<HTMLDivElement>(null);
   const menuRoot = useRef<HTMLDivElement>(null);
-  const menuButton = useRef<HTMLButtonElement>(null);
   const focusNext = useRef<string | null>(null);
   const drag = useRef<{ pointerId: number; start: Point; origin: Point; last: Point; mode: Mode } | null>(null);
+  const stretch = useRef<{ pointerId: number; startY: number; origin: number; last: number } | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const reduced = !!useReducedMotion();
   const minimized = mode === "minimized";
-  // Keep a useful host width on small previews; the requested dock resumes on widening.
-  const docked = mode === "sidebar" && viewport.x >= 720;
-  const width = minimized ? 244 : Math.min(360, viewport.x - 24);
-  const height = minimized ? 52 : docked ? viewport.y : Math.min(660, viewport.y - 24);
-  const point = dragPoint ?? (minimized ? anchorPoint(placement.anchor, width, height, viewport) : docked ? { x: viewport.x - width, y: 0 }
+  const width = minimized ? TOOLBAR.width : Math.min(PANEL.width, viewport.x - 24);
+  const maxHeight = Math.max(PANEL.minHeight, viewport.y - 24);
+  const height = minimized ? TOOLBAR.height : Math.min(maxHeight, dragHeight ?? placement.height ?? PANEL.defaultHeight);
+  // While resizing, the top edge stays put (the stored point is not re-clamped against the growing height).
+  const point = dragPoint ?? (minimized ? anchorPoint(placement.anchor, width, height, viewport)
+    : dragHeight !== null ? clampPoint(placement.panel ?? { x: viewport.x - width - 16, y: 16 }, width, PANEL.minHeight, viewport)
     : clampPoint(placement.panel ?? { x: viewport.x - width - 16, y: 16 }, width, height, viewport));
   const transition = { type: "spring" as const, visualDuration: 0.38, bounce: 0.08 };
 
@@ -79,7 +87,7 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
   }, [menu]);
 
   const changeMode = (next: Mode) => {
-    clearTimeout(hoverTimer.current); setMenu(false); setFallback(null); setDragPoint(null);
+    clearTimeout(hoverTimer.current); setMenu(false); setFallback(null); setDragPoint(null); setDragHeight(null);
     focusNext.current = next === "minimized" ? '[aria-label="展开调参面板"]' : '[aria-label="收起调参面板"]';
     setMode(next);
   };
@@ -105,7 +113,6 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
     drag.current = { pointerId: e.pointerId, start: { x: e.clientX, y: e.clientY }, origin, last: origin, mode };
     e.currentTarget.setPointerCapture(e.pointerId);
     setMenu(false); setDragPoint(origin);
-    if (mode === "sidebar") setMode("floating");
   };
   const moveDrag = (e: PointerEvent<HTMLButtonElement>) => {
     const d = drag.current;
@@ -120,6 +127,34 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
     setPlacement(p => d.mode === "minimized" ? { ...p, anchor: nearestAnchor(d.last, width, height, viewport) } : { ...p, panel: d.last });
     setDragPoint(null);
   };
+  /** Bottom-edge resize: height follows the pointer, bounded by the min height and the viewport bottom. */
+  const heightFor = (y: number) => Math.round(Math.max(PANEL.minHeight, Math.min(viewport.y - 12 - point.y, y)));
+  const startStretch = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    stretch.current = { pointerId: e.pointerId, startY: e.clientY, origin: height, last: height };
+    setDragHeight(height);
+  };
+  const moveStretch = (e: PointerEvent<HTMLDivElement>) => {
+    const s = stretch.current;
+    if (!s || s.pointerId !== e.pointerId) return;
+    s.last = heightFor(s.origin + e.clientY - s.startY);
+    setDragHeight(s.last);
+  };
+  const endStretch = () => {
+    const s = stretch.current;
+    if (!s) return;
+    stretch.current = null;
+    setPlacement(p => ({ ...p, panel: p.panel ?? point, height: s.last }));
+    setDragHeight(null);
+  };
+  const keyboardStretch = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    e.preventDefault();
+    const next = heightFor(height + (e.key === "ArrowDown" ? 1 : -1) * (e.shiftKey ? 80 : 20));
+    setPlacement(p => ({ ...p, panel: p.panel ?? point, height: next }));
+  };
   const keyboardMove = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (!e.key.startsWith("Arrow")) return;
     e.preventDefault();
@@ -131,12 +166,12 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
       const row = Math.max(0, Math.min(1, Math.floor(index / 3) + dy));
       setPlacement(p => ({ ...p, anchor: anchors[row * 3 + col] }));
     } else {
-      setMode("floating");
-      setPlacement(p => ({ ...p, panel: clampPoint({ x: point.x + dx * (e.shiftKey ? 40 : 10), y: point.y + dy * (e.shiftKey ? 40 : 10) }, width, Math.min(660, viewport.y - 24), viewport) }));
+      setPlacement(p => ({ ...p, panel: clampPoint({ x: point.x + dx * (e.shiftKey ? 40 : 10), y: point.y + dy * (e.shiftKey ? 40 : 10) }, width, height, viewport) }));
     }
   };
+  const playButton = () => menuRoot.current?.querySelector<HTMLButtonElement>('[aria-label="重播全部动效"]');
   const menuKeys = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "Escape") { e.stopPropagation(); setMenu(false); menuButton.current?.focus(); }
+    if (e.key === "Escape") { e.stopPropagation(); setMenu(false); playButton()?.focus(); }
     const items = Array.from(menuRoot.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? []);
     if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key) && items.length) {
       e.preventDefault();
@@ -149,40 +184,38 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
   const copyButton = <Button size="md" iconOnly icon={<Copy size={15} />} aria-label="复制完整 JSON" title="复制完整 JSON" onClick={copy} />;
 
   return <>
-    <motion.div className="at-mw-host" data-attune-host animate={{ marginRight: docked ? width : 0 }} transition={reduced ? { duration: 0 } : transition}>{children}</motion.div>
-    {createPortal(<AttuneRoot theme={theme} material="frosted" blur={22} opacity={0.82} className="at-mw-root">
-      <motion.div ref={shell} className="at-mw-shell at-panel" data-mode={mode} data-docked={docked || undefined} data-anchor={placement.anchor}
+    {children}
+    {createPortal(<AttuneRoot theme={theme} material="frosted" blur={24} opacity={0.52} className="at-mw-root">
+      <motion.div ref={shell} className="at-mw-shell at-panel" data-mode={mode} data-anchor={placement.anchor} data-resizing={dragHeight !== null || undefined}
         role="region" aria-label="Attune 动效调参" initial={false}
-        animate={{ x: point.x, y: point.y, width, height, borderRadius: minimized ? 26 : docked ? 0 : 18 }}
-        transition={reduced || dragPoint ? { duration: 0 } : transition}
+        animate={{ x: point.x, y: point.y, width, height, borderRadius: minimized ? 26 : 18 }}
+        transition={reduced || dragPoint || dragHeight !== null ? { duration: 0 } : transition}
         onKeyDown={e => { if (e.key === "Escape" && !menu && !minimized) { e.stopPropagation(); changeMode("minimized"); } }}>
         {minimized ? <motion.div key="toolbar" className="at-mw-toolbar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: reduced ? 0 : 0.15 }}>
           {grip}
           <Button iconOnly icon={<Maximize2 size={15} />} aria-label="展开调参面板" title="展开调参面板" onClick={() => changeMode("floating")} />
-          <span className="at-mw-divider" />
           <div className="at-mw-play" ref={menuRoot} onKeyDown={menuKeys}
             onPointerEnter={() => clearTimeout(hoverTimer.current)}
             onPointerLeave={() => { hoverTimer.current = setTimeout(() => { if (!menuRoot.current?.contains(document.activeElement)) setMenu(false); }, 180); }}
             onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setMenu(false); }}>
-            <Button iconOnly icon={<Play size={15} />} disabled={!definitions.length} aria-label="重播全部动效" title="重播全部动效"
-              onPointerEnter={e => { if (e.pointerType === "mouse") setMenu(true); }} onClick={() => replay()} />
-            <button ref={menuButton} type="button" className="at-mw-menu-trigger at-icon-btn" aria-label="选择单个动效" aria-haspopup="menu" aria-expanded={menu}
-              onClick={() => setMenu(v => !v)} onKeyDown={e => { if (e.key === "ArrowDown") { e.preventDefault(); setMenu(true); requestAnimationFrame(() => menuRoot.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()); } }}><ChevronUp size={13} /></button>
+            {/* Hover (mouse) or ArrowUp/ArrowDown (keyboard) reveals per-animation replay; click replays all. */}
+            <Button iconOnly icon={<Play size={15} />} disabled={!definitions.length} aria-label="重播全部动效" title="重播全部动效 · 悬停或方向键选择单个"
+              aria-haspopup="menu" aria-expanded={menu}
+              onPointerEnter={e => { if (e.pointerType === "mouse") setMenu(true); }} onClick={() => replay()}
+              onKeyDown={e => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); setMenu(true); requestAnimationFrame(() => menuRoot.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()); } }} />
             {menu && <motion.div className="at-mw-menu" role="menu" aria-label="单项动效重播" data-below={point.y < viewport.y / 2 || undefined}
               initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduced ? 0 : 0.14 }}>
               <span className="at-mw-menu-caption">独立重播</span>
-              {definitions.map(d => <Button key={d.id} role="menuitem" onClick={() => { replay(d.id); menuButton.current?.focus(); }} icon={<Play size={12} />}>{d.label}</Button>)}
+              {definitions.map(d => <Button key={d.id} role="menuitem" onClick={() => { replay(d.id); playButton()?.focus(); }} icon={<Play size={12} />}>{d.label}</Button>)}
               {!definitions.length && <span>当前没有注册动效</span>}
             </motion.div>}
           </div>
-          <span className="at-mw-divider" />{copyButton}
+          {copyButton}
         </motion.div> : <motion.div key="expanded" className="at-mw-expanded" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: reduced ? 0 : 0.18 }}>
-          <header className="at-mw-head">{grip}<div className="at-mw-heading"><strong>Attune <span>Motion</span></strong><small>{definitions.length} 组动效 · 实时调参</small></div>
-            <Button iconOnly icon={mode === "sidebar" ? <Maximize2 size={15} /> : <PanelRight size={15} />} aria-label={mode === "sidebar" ? "切换悬浮面板" : "切换侧边栏"} title={mode === "sidebar" ? "切换悬浮面板" : "切换侧边栏"} onClick={() => changeMode(mode === "sidebar" ? "floating" : "sidebar")} />
+          <header className="at-mw-head">{grip}<div className="at-mw-heading"><strong>Attune <span>Motion</span></strong></div>
             <Button iconOnly icon={<Minimize2 size={15} />} aria-label="收起调参面板" title="收起调参面板" onClick={() => changeMode("minimized")} />
           </header>
-          <div className="at-mw-scroll">
-            {mode === "sidebar" && !docked && <p className="at-mw-note">窄屏使用悬浮面板，保留页面预览空间。</p>}
+          <ScrollArea className="at-mw-scroll-area" viewportClassName="at-mw-scroll">
             {!definitions.length && <p className="at-mw-note">还没有动效。注册动效后，参数会显示在这里。</p>}
             {definitions.map((d, index) => <PanelGroup key={d.id} title={d.label} badge={String(index + 1).padStart(2, "0")}
               actions={<Button size="sm" iconOnly icon={<Play size={12} />} aria-label={`重播${d.label}`} onClick={() => replay(d.id)} />}>
@@ -195,14 +228,21 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
                   return <Field key={f.key} label={f.label} hint={f.hint} value={value as number} min={f.min} max={f.max} step={f.step} unit={f.unit}
                     onChange={v => update(d.id, f.key, v)} modified={value !== f.default} onReset={() => update(d.id, f.key, f.default)} />;
                 }
-                if (f.type === "boolean") return <Row key={f.key} label={f.label} hint={f.hint}><Switch aria-label={label} checked={value as boolean} onChange={v => update(d.id, f.key, v)} /></Row>;
-                if (f.type === "select") return <Row key={f.key} label={f.label} hint={f.hint}><Select aria-label={label} value={value as string} options={f.options} onChange={v => update(d.id, f.key, v)} /></Row>;
-                return <PanelGroup key={f.key} title={f.label} defaultOpen={false}><div className="at-mw-bezier"><BezierEditor size={180} value={value as Bezier} onChange={v => update(d.id, f.key, v)} /></div></PanelGroup>;
+                // SwitchField keeps the label left and the switch on the right edge, like slider readouts.
+                if (f.type === "boolean") return <SwitchField key={f.key} label={f.label} hint={f.hint} checked={value as boolean} onChange={v => update(d.id, f.key, v)} />;
+                if (f.type === "select") return <Row key={f.key} label={f.label} hint={f.hint}><Select aria-label={label} width="100%" value={value as string} options={f.options} onChange={v => update(d.id, f.key, v)} /></Row>;
+                // Inline in the animation's own group (no second level): the field label names what it controls.
+                const curve = value as Bezier;
+                return <Row key={f.key} stacked label={f.label} hint={f.hint} modified={curve.some((n, i) => n !== f.default[i])} onReset={() => update(d.id, f.key, f.default)}>
+                  <div className="at-mw-bezier"><BezierEditor size={180} presetPicker="radial" value={curve} onChange={v => update(d.id, f.key, v)} /></div></Row>;
               })}
             </PanelGroup>)}
-          </div>
+          </ScrollArea>
           <footer className="at-mw-footer"><Button icon={<Play size={13} />} disabled={!definitions.length} onClick={() => replay()}>重播全部</Button>
-            <Button iconOnly icon={<RotateCcw size={14} />} aria-label="恢复面板位置" title="恢复面板位置" onClick={() => { setPlacement({ anchor: "bottom-center", panel: null }); setStatus("位置已恢复"); }} />{copyButton}</footer>
+            <Button iconOnly icon={<RotateCcw size={14} />} aria-label="恢复面板位置" title="恢复面板位置与高度" onClick={() => { setPlacement({ anchor: "bottom-center", panel: null, height: null }); setStatus("位置与高度已恢复"); }} />{copyButton}</footer>
+          <div className="at-mw-resize" role="separator" aria-orientation="horizontal" aria-label="拖动调整面板高度，方向键调整" tabIndex={0}
+            aria-valuemin={PANEL.minHeight} aria-valuemax={maxHeight} aria-valuenow={Math.round(height)}
+            onPointerDown={startStretch} onPointerMove={moveStretch} onPointerUp={endStretch} onPointerCancel={endStretch} onLostPointerCapture={endStretch} onKeyDown={keyboardStretch}><span /></div>
         </motion.div>}
         <div className="at-mw-status" role="status" data-below={point.y < viewport.y / 2 || undefined}>{status}</div>
         {fallback && <div className="at-mw-copy-fallback" data-below={point.y < viewport.y / 2 || undefined}><textarea aria-label="完整动效 JSON，手动复制" readOnly value={fallback} onFocus={e => e.currentTarget.select()} autoFocus /><Button onClick={() => setFallback(null)}>关闭</Button></div>}

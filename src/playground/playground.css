@@ -376,7 +376,7 @@ button {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: var(--at-space-4) var(--at-space-3) var(--at-space-3) var(--at-space-5);
+  padding: var(--at-space-4) var(--at-space-3) var(--at-space-3) var(--at-space-6);
   border-bottom: 1px solid var(--at-color-border-subtle);
 }
 .pg-modal-panel-title {
@@ -388,12 +388,11 @@ button {
   color: var(--at-color-text-tertiary);
   font-size: var(--at-text-caption-size);
 }
-.pg-modal-panel-body {
+.pg-modal-panel-scroll {
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 0 var(--at-space-4) var(--at-space-4) var(--at-space-5);
-  scrollbar-width: thin;
+}
+.pg-modal-panel-body {
+  padding: var(--at-space-3) var(--at-space-6) var(--at-space-4);
 }
 .pg-modal-panel-body .at-group .at-group .at-group-head {
   height: 30px;
@@ -543,4 +542,41 @@ button {
     grid-template-columns: repeat(2, 1fr);
     padding: var(--at-space-4);
   }
+}
+.pg-scroll-demo {
+  width: 100%;
+  height: 168px;
+  border-radius: var(--at-radius-md);
+  background: var(--at-color-surface-panel);
+  box-shadow: inset 0 0 0 1px var(--at-color-border-subtle);
+}
+.pg-scroll-demo[data-variant="stage"] {
+  height: 300px;
+  max-width: 420px;
+}
+.pg-scroll-demo-view {
+  padding: 6px 18px 6px 6px;
+}
+.pg-scroll-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--at-radius-sm);
+  color: var(--at-color-text-primary);
+  font-size: var(--at-text-body-size);
+}
+.pg-scroll-row:hover {
+  background: var(--at-color-surface-sunken);
+}
+.pg-scroll-row span {
+  color: var(--at-color-text-tertiary);
+  font: 10px var(--at-font-mono);
+}
+.pg-scroll-row em {
+  margin-left: auto;
+  color: var(--at-color-text-secondary);
+  font-style: normal;
+  font-size: var(--at-text-caption-size);
 }

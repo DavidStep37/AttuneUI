@@ -1,26 +1,26 @@
-.at-mw-host { min-width: 0; }
 .at-mw-root { position: fixed; inset: 0; z-index: 900; pointer-events: none; }
-.at-mw-shell.at-panel { position: absolute; top: 0; left: 0; margin: 0; padding: 0; min-width: 0; pointer-events: auto; overflow: visible; box-sizing: border-box; box-shadow: 0 16px 60px var(--at-color-shadow-color), 0 2px 8px var(--at-color-shadow-color-soft); }
-.at-mw-toolbar { height: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 10px; box-sizing: border-box; }
-.at-mw-grip { flex: none; display: grid; place-items: center; width: 24px; height: 28px; border: 0; background: transparent; color: var(--at-color-text-tertiary); cursor: grab; touch-action: none; border-radius: 5px; }
+.at-mw-shell.at-panel { position: absolute; top: 0; left: 0; margin: 0; padding: 0; min-width: 0; pointer-events: auto; overflow: visible; box-sizing: border-box; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--at-color-border-subtle) 70%, transparent), inset 0 1px 0 color-mix(in srgb, white 45%, transparent), 0 16px 60px var(--at-color-shadow-color), 0 2px 8px var(--at-color-shadow-color-soft); }
+/* Width is TOOLBAR.width in MotionWorkbench.tsx — keep padding/gap/grip in sync. */
+.at-mw-toolbar { height: 100%; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 10px; box-sizing: border-box; }
+.at-mw-grip { position: relative; flex: none; display: grid; place-items: center; width: 16px; height: 28px; padding: 0; border: 0; background: transparent; color: var(--at-color-text-tertiary); cursor: grab; touch-action: none; border-radius: 5px; }
+.at-mw-grip::before { content: ""; position: absolute; inset: 0 -6px; }
 .at-mw-grip:active { cursor: grabbing; }
 .at-mw-grip:focus-visible { outline: 2px solid var(--at-color-focus-ring); outline-offset: 2px; }
-.at-mw-divider { height: 18px; width: 1px; background: var(--at-color-border-subtle); }
-.at-mw-play { display: flex; gap: 8px; align-items: center; }
-.at-mw-menu-trigger { width: 18px; }
-.at-mw-menu { position: absolute; bottom: calc(100% + 8px); left: 4px; width: 232px; max-height: min(300px, 60vh); overflow-y: auto; padding: 12px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; background: var(--at-color-surface-panel); border: 1px solid var(--at-color-border-subtle); border-radius: 16px; box-shadow: 0 8px 32px var(--at-color-shadow-color); }
+.at-mw-play { display: flex; align-items: center; }
+.at-mw-menu { position: absolute; bottom: calc(100% + 8px); width: 232px; max-height: min(300px, 60vh); overflow-y: auto; padding: 12px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; background: var(--at-color-surface-panel); border: 1px solid var(--at-color-border-subtle); border-radius: 16px; box-shadow: 0 8px 32px var(--at-color-shadow-color); }
 .at-mw-menu[data-below] { bottom: auto; top: calc(100% + 8px); }
 .at-mw-menu-caption { color: var(--at-color-text-tertiary); font-size: 11px; padding: 0 6px; }
 .at-mw-expanded { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; border-radius: inherit; }
-.at-mw-head { display: flex; flex: none; align-items: center; gap: 10px; padding: 15px 12px; border-bottom: 1px solid var(--at-color-border-subtle); }
-.at-mw-heading { flex: 1; min-width: 0; display: grid; gap: 5px; }
+.at-mw-head { display: flex; flex: none; align-items: center; gap: 10px; padding: 12px 12px 12px 22px; border-bottom: 1px solid var(--at-color-border-subtle); }
+.at-mw-heading { flex: 1; min-width: 0; }
 .at-mw-heading strong { font-size: 14px; letter-spacing: -0.3px; }
 .at-mw-heading strong span { font-weight: 400; color: var(--at-color-text-secondary); }
-.at-mw-heading small { color: var(--at-color-text-tertiary); font-size: 11px; }
-.at-mw-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 8px 20px 16px; scrollbar-width: thin; }
+.at-mw-scroll-area { flex: 1; }
+/* 24px sides with the 12px group card pad: a hovered card keeps 12px from the frame and the header line. */
+.at-mw-scroll { overscroll-behavior: contain; padding: 12px 24px 16px; }
 .at-mw-note { margin: 0 0 10px; color: var(--at-color-text-secondary); font-size: 11px; line-height: 1.7; }
-.at-mw-bezier { display: grid; justify-items: center; gap: 10px; padding-top: 8px; }
-.at-mw-footer { display: flex; flex: none; justify-content: flex-end; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid var(--at-color-border-subtle); }
+.at-mw-bezier { width: 100%; padding-top: 4px; }
+.at-mw-footer { display: flex; flex: none; justify-content: flex-end; align-items: center; gap: 12px; padding: 14px 24px; border-top: 1px solid var(--at-color-border-subtle); }
 .at-mw-footer > :first-child { margin-right: auto; }
 .at-mw-status:not(:empty) { position: absolute; bottom: calc(100% + 10px); left: 0; right: 0; padding: 10px; border-radius: 10px; background: var(--at-color-surface-raised); box-shadow: 0 4px 20px var(--at-color-shadow-color); font-size: 11px; text-align: center; }
 .at-mw-status[data-below]:not(:empty) { bottom: auto; top: calc(100% + 10px); }
@@ -29,3 +29,16 @@
 .at-mw-copy-fallback[data-below] { top: calc(100% + 60px); bottom: auto; }
 .at-mw-shell:not([data-mode="minimized"]) .at-mw-copy-fallback { top: auto; bottom: 100px; }
 .at-mw-copy-fallback textarea { width: 100%; height: min(160px, 25vh); box-sizing: border-box; font: 11px/1.5 monospace; color: var(--at-color-text-primary); background: var(--at-color-surface-sunken); }
+/* The toolbar is narrower than its popovers: centre them, or pin to the side the toolbar is docked to. */
+.at-mw-shell[data-mode="minimized"] :is(.at-mw-menu, .at-mw-status:not(:empty), .at-mw-copy-fallback) { left: 50%; right: auto; translate: -50% 0; }
+.at-mw-shell[data-mode="minimized"][data-anchor$="left"] :is(.at-mw-menu, .at-mw-status:not(:empty), .at-mw-copy-fallback) { left: 0; translate: none; }
+.at-mw-shell[data-mode="minimized"][data-anchor$="right"] :is(.at-mw-menu, .at-mw-status:not(:empty), .at-mw-copy-fallback) { left: auto; right: 0; translate: none; }
+.at-mw-shell[data-mode="minimized"] .at-mw-status:not(:empty) { width: max-content; max-width: 300px; box-sizing: border-box; }
+.at-mw-shell[data-mode="minimized"] .at-mw-copy-fallback { width: 300px; box-sizing: border-box; }
+/* Bottom-edge height handle: a full-width grab strip; the pill appears on hover/drag/focus. */
+.at-mw-resize { position: absolute; left: 24px; right: 24px; bottom: 0; height: 10px; display: grid; place-items: center; cursor: ns-resize; touch-action: none; border-radius: 6px; z-index: 3; }
+.at-mw-resize span { width: 36px; height: 4px; border-radius: 2px; background: var(--at-color-border-strong); opacity: 0; transition: opacity var(--at-motion-duration-micro) var(--at-ease-standard), width var(--at-motion-duration-micro) var(--at-ease-standard), background-color var(--at-motion-duration-micro) var(--at-ease-standard); }
+.at-mw-resize:hover span, .at-mw-resize:focus-visible span { opacity: 1; }
+.at-mw-shell[data-resizing] .at-mw-resize span { opacity: 1; width: 48px; background: var(--at-color-slider-fill); }
+.at-mw-shell[data-resizing], .at-mw-shell[data-resizing] * { cursor: ns-resize !important; user-select: none; }
+.at-mw-resize:focus-visible { outline: 2px solid var(--at-color-focus-ring); outline-offset: -2px; }

@@ -52,7 +52,7 @@ function MotionLab() {
       { type: "select", key: "direction", label: "移动方向", default: "lift", options: [{ value: "lift", label: "向上" }, { value: "slide", label: "向右" }] },
     ] },
     { id: "notice", label: "提示进出场", description: "渐入、留白、渐出，三个阶段独立调整。", replay: p => replay("notice", p), fields: [
-      number("duration", "渐入时长", 300, 1500), { ...number("hold", "留白时长", 1000, 4000), control: "number" }, number("exit", "渐出时长", 300, 1500),
+      number("duration", "渐入时长", 300, 1500), number("hold", "留白时长", 1000, 4000), number("exit", "渐出时长", 300, 1500),
     ] },
   ];
   const [config, setConfig] = useState(() => createMotionConfig("attune-first-skill-test", definitions));
@@ -63,7 +63,7 @@ function MotionLab() {
   useEffect(() => { const active = runs.current; return () => { active.forEach(a => a.cancel()); active.clear(); }; }, []);
 
   const content = <main className="ml-page">
-    <nav className="ml-nav"><a href="/showcase.html" className="ml-brand"><span className="ml-mark">a</span>attune<span className="ml-nav-tag">MOTION LAB</span></a><span>Skill preview · 0.1.0</span></nav>
+    <nav className="ml-nav"><a href="/showcase.html" className="ml-brand"><span className="ml-mark">a</span>attune<span className="ml-nav-tag">MOTION LAB</span></a><span>Skill preview · 0.1.1</span></nav>
     <section className="ml-intro"><p className="ml-eyebrow">DESIGNED TO FEEL RIGHT</p><h1>让动效，<br /><em>恰到好处。</em></h1><p className="ml-lead">不再说“快一点、再慢一点”。<br />把感觉变成数值，在真实页面上找到合适的节奏。</p><div className="ml-guide"><span>01 展开底部面板</span><span>02 调整并重播</span><span>03 复制参数</span></div></section>
     <section className="ml-experiments" aria-label="三组动效预览">
       <article className="ml-experiment"><header><span>01 / ENTRANCE</span><Layers size={17} /></header><div className="ml-stage"><div ref={hero} className="ml-hero" data-animation="entrance"><div className="ml-orbit"><i /><i /><i /></div><strong>留一点呼吸感。</strong><span>A little room to move.</span></div></div><footer><strong>卡片入场</strong><span data-count="entrance">重播 {counts.entrance} 次</span></footer></article>

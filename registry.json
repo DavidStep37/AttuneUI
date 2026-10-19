@@ -60,6 +60,11 @@
           "target": "@components/attune/components/RadialPicker.tsx"
         },
         {
+          "path": "src/components/ScrollArea.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/ScrollArea.tsx"
+        },
+        {
           "path": "src/components/Segmented.tsx",
           "type": "registry:file",
           "target": "@components/attune/components/Segmented.tsx"

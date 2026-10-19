@@ -5,6 +5,7 @@ import type { ParamDef, ParamValue } from "../core/schema";
 import type { ControlSize, SpringToken } from "../tokens/tokens";
 import { NumberInput, useScrub } from "./Input";
 import { Slider } from "./Slider";
+import { ScrollArea } from "./ScrollArea";
 import { IconClose, MotionChevronDown, MotionChevronUp } from "../core/icons";
 
 /* ------------------------------------------------------------------ Row */
@@ -33,6 +34,8 @@ export function Row({
   return (
     <div className={`at-row ${className ?? ""}`} data-control-size={size} data-stacked={stacked || undefined}>
       <span className="at-row-label" title={typeof hint === "string" ? hint : undefined} {...labelProps}>
+        <span className="at-row-label-text">{label}</span>
+        {/* After the name, not in the left gutter: keeps clear of card/panel borders. */}
         {modified && (
           <button
             type="button"
@@ -46,7 +49,6 @@ export function Row({
             }}
           />
         )}
-        <span className="at-row-label-text">{label}</span>
       </span>
       <div className="at-row-control">{children}</div>
     </div>
@@ -123,10 +125,10 @@ export function SpringField({
   return (
     <div className="at-spring-field">
       <div className="at-spring-title">
+        <span>{label}</span>
         {modified && (
           <button type="button" className="at-row-modified" aria-label="已修改，点击重置" title="已修改 · 点击重置" onClick={onReset} />
         )}
-        <span>{label}</span>
         {hint && <span className="at-row-hint">{hint}</span>}
       </div>
       <SliderField
@@ -238,13 +240,17 @@ export function PanelGroup({
   const { springs, reduced } = useFeelState();
   return (
     <section className="at-group" data-open={open || undefined}>
+      {/* Title starts at the content edge; the disclosure chevron sits at the far right, after any
+          actions, so controls below span the full width instead of hanging under an indent. */}
       <div className="at-group-head">
         <button type="button" className="at-group-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          <MotionChevronDown size={12} strokeWidth={1.75} animate={{ rotate: open ? 0 : -90 }} transition={springTransition(springs.snappy, reduced)} aria-hidden="true" />
-          <span className="at-group-title">{title}</span>
           {badge && <span className="at-group-badge">{badge}</span>}
+          <span className="at-group-title">{title}</span>
         </button>
         {actions && <div className="at-group-actions">{actions}</div>}
+        <button type="button" className="at-group-chevron at-icon-btn" tabIndex={-1} aria-hidden="true" onClick={() => setOpen((o) => !o)}>
+          <MotionChevronDown size={14} strokeWidth={1.75} animate={{ rotate: open ? 0 : -90 }} transition={springTransition(springs.snappy, reduced)} />
+        </button>
       </div>
       <AnimatePresence initial={false}>
         {open && (
@@ -338,7 +344,7 @@ export function Panel({ title, subtitle, actions, footer, children, floating, on
             animate={{ height: "auto", opacity: 1, transition: { height: springTransition(springs.pop, reduced), opacity: { duration: 0.16 } } }}
             exit={{ height: 0, opacity: 0, transition: { height: springTransition(springs.pop, reduced, { exit: true }), opacity: { duration: 0.1 } } }}
           >
-            <div className="at-panel-body">{children}</div>
+            <ScrollArea className="at-panel-scroll" viewportClassName="at-panel-body">{children}</ScrollArea>
             {footer && <div className="at-panel-footer">{footer}</div>}
           </motion.div>
         )}

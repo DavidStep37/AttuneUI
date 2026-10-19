@@ -75,7 +75,7 @@ try {
   assert.equal(await page.$eval(surface, el => getComputedStyle(el).borderTopLeftRadius), '17px');
   const blurSlider = '#material [role="slider"][aria-label="背景模糊"]';
   await page.focus(blurSlider); await page.keyboard.press('ArrowRight');
-  assert.equal(await page.$eval(surface, el => getComputedStyle(el).backdropFilter), 'blur(19px)');
+  assert.match(await page.$eval(surface, el => getComputedStyle(el).backdropFilter), /^blur\(19px\)/);
   await page.$eval('#material', el => el.scrollIntoView());
   await page.screenshot({ path: '.backup/showcase-review/material.png' });
 

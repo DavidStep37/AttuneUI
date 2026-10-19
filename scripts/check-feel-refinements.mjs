@@ -13,7 +13,7 @@ try {
   await page.setViewport({ width: 1200, height: 900, deviceScaleFactor: 2 });
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
   await page.goto(process.env.ATTUNE_URL ?? 'http://localhost:5188', { waitUntil: 'networkidle0' });
-  assert.equal(await page.$$('.pg-card').then(els => els.length), 11);
+  assert.equal(await page.$$('.pg-card').then(els => els.length), 12);
   await page.screenshot({ path: `${out}/playground.png`, fullPage: true });
   await page.evaluate(async () => {
     const resources = performance.getEntriesByType('resource').map(e => e.name);

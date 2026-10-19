@@ -66,10 +66,10 @@ function Preview() {
 
 参数默认只保存在内存；刷新恢复源码默认参数。面板位置以 `attune-motion:placement:v1:<projectId>` 单独存储；没有修改原 Playground 或 glass/liquid 的存储。需要跨刷新保存参数时，可基于已验证 schema 增加项目自己的存储，而不是直接信任 localStorage JSON。
 
-## Push 与宿主布局
+## 面板与宿主布局
 
-默认展开宽 360px，高不超过 660px。侧栏位于右侧，工具 wrapper 的 margin-right 与侧栏尺寸一起动画。把页面响应式容器放到 wrapper 下，不应保留 width:100vw 这类绕过容器宽度的样式。
+工具只悬浮在页面之上，没有侧栏/Push 模式，不包裹、不推挤也不重排宿主布局；`children` 原样渲染，可省略并与页面并列挂载。展开面板宽 360px，默认高 660px，用户可拖动底边调整高度（最小 260px，不超出视口），高度与位置一起存入 `attune-motion:placement:v1:<projectId>`。
 
-固定定位页头/弹层/画布、第三方 iframe 不会自动响应 margin。接入时检查这些元素，为它们接入同一宽度约束或改为布局容器内定位。不要对 body 或页面根节点加 scale 或全局 transform 来假装 Push。工具通过 body portal 脱离宿主 transform，层级默认 900，Attune 下拉为 1000；若宿主层级不同，统一调整同一套层级，不单独把面板提到下拉上面。
+面板可能遮住页面右侧内容，这是预期行为：用户可拖走面板、调矮或收起成 Toolbar。不要为工具给页面加 margin、scale 或全局 transform。工具通过 body portal 脱离宿主 transform，层级默认 900，Attune 下拉为 1000；若宿主层级不同，统一调整同一套层级，不单独把面板提到下拉上面。
 
 只覆盖 `.at-mw-*` 的壳布局即可；原生控件颜色、尺寸、SVG、命中区继续使用 AttuneUI tokens。局部样式不是 Shadow DOM，强全局选择器仍可能干扰，需要实测。

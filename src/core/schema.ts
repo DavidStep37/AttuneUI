@@ -114,11 +114,11 @@ export const componentSchemas = {
   ],
   bezier: [
     sd("sideSpring", "适形回弹", "两侧适形", { visualDuration: 0.4, bounce: 0.2 }, "拖动时只推开受挤压的一侧，松手后另一侧弹回，保留 2.5px 法线间隙"),
-    n("pointHoverScale", "控制点放大", "控制点", 1, 2, 0.01, { default: 1.35, unit: "×" }),
+    n("pointHoverScale", "控制点放大", "控制点", 1, 2, 0.01, { default: 1.5, unit: "×" }),
     n("lineThin", "连接线变细", "控制点", 0, 1, 0.01, { inherit: "volumeConservation" }),
     n("edgeResistance", "边界阻力", "控制点", 0, 1, 0.01, { inherit: "edgeResistance" }),
-    s("recover", "松手回弹", "控制点", "soft"),
-    s("presetSpring", "预设切换", "预设", "pop"),
+    sd("recover", "松手回弹", "控制点", { visualDuration: 0.3, bounce: 0.2 }),
+    sd("presetSpring", "预设切换", "预设", { visualDuration: 0.6, bounce: 0.25 }),
   ],
   switch: [
     n("thumbHoverScale", "hover 放大", "手柄", 1, 1.5, 0.01, { default: 1.2, unit: "×" }),
@@ -136,11 +136,11 @@ export const componentSchemas = {
     sd("tailSpring", "后沿", "选中底色", { visualDuration: 0.3, bounce: 0 }),
   ],
   select: [
-    s("openSpring", "展开", "列表", "pop"),
-    s("highlightSpring", "高亮跟随", "高亮", "snappy"),
+    sd("openSpring", "展开", "列表", { visualDuration: 0.3, bounce: 0.3 }),
+    sd("highlightSpring", "高亮跟随", "高亮", { visualDuration: 0.2, bounce: 0.2 }),
     n("highlightStretch", "高亮拉伸", "高亮", 0, 1, 0.01, { default: 0.5 }),
-    n("overscroll", "触底拉伸", "滚动", 0, 40, 1, { default: 24, unit: "px", hint: "滚动到最后一项后继续下滑，菜单向下拉伸的最大距离；0 关闭" }),
-    sd("overscrollSpring", "拉伸回弹", "滚动", { visualDuration: 0.32, bounce: 0.3 }),
+    n("overscroll", "触底拉伸", "滚动", 0, 40, 1, { default: 0, unit: "px", hint: "滚动到最后一项后继续下滑，菜单向下拉伸的最大距离；0 关闭" }),
+    sd("overscrollSpring", "拉伸回弹", "滚动", { visualDuration: 0.02, bounce: 0 }),
   ],
   checkbox: [
     n("hoverScale", "悬停放大", "外框", 1, 1.2, 0.01, { default: 1.08, unit: "×" }),
@@ -155,6 +155,17 @@ export const componentSchemas = {
     n("dismissScale", "点击爆开", "退场", 1, 1.3, 0.01, { default: 1.12, unit: "×", hint: "仅手动关闭时向外放大，自动退场保持原尺寸" }),
     n("exitBlur", "消散模糊", "退场", 0, 16, 0.5, { default: 8, unit: "px" }),
     n("exitDuration", "消散时长", "退场", 100, 800, 20, { default: 240, unit: "ms" }),
+  ],
+  scrollbar: [
+    n("idleWidth", "常态粗细", "滑块", 2, 8, 0.5, { default: 4, unit: "px", hint: "滚动或指针进入区域时出现的细滑块" }),
+    n("hoverWidth", "靠近粗细", "滑块", 4, 14, 0.5, { default: 8, unit: "px", hint: "指针靠近右侧时滑块变粗，露出外轨道和白色抓取点" }),
+    n("minThumb", "最短长度", "滑块", 16, 64, 1, { default: 20, unit: "px" }),
+    sd("hoverSpring", "粗细变化", "滑块", { visualDuration: 0.15, bounce: 0 }),
+    n("inset", "内外层间距", "轨道", 0, 4, 0.25, { default: 2.5, unit: "px", hint: "外轨道包裹滑块的留白，默认对齐 Slider 内外层间距" }),
+    sd("jumpSpring", "点击轨道跳转", "轨道", { visualDuration: 0.2, bounce: 0.1 }),
+    n("squash", "触边压缩", "边界", 0, 32, 1, { default: 28, unit: "px", hint: "到顶或到底后继续滚动，滑块贴着端点被压短的最大距离；0 关闭" }),
+    sd("recover", "压缩回弹", "边界", { visualDuration: 0.2, bounce: 0.15 }),
+    n("hideDelay", "自动隐藏", "显隐", 0, 3000, 100, { default: 500, unit: "ms", hint: "停止滚动并离开后多久淡出；0 表示常驻" }),
   ],
   tabs: [
     s("indicatorSpring", "指示条跟随", "标签", "snappy"),
@@ -187,9 +198,9 @@ export const sharedSchema: NumberParam[] = [
 
 const springHints: Record<SpringName, string> = {
   follow: "Slider 拖尾对速度变化的响应。时长越短跟随越快；这里的弹性不影响拖尾，也不改变柱身粗细。",
-  snappy: "Slider 点击轨道与手柄放大、Button 跟随与按压、Switch 滑动、Segmented 前沿、Select 高亮、Checkbox 勾选、Tabs 指示条。时长越大越慢，弹性越大回弹越明显。",
-  soft: "Slider 离开复原、Timeline 与 Bezier 松手回弹、Button 回弹、Segmented 后沿和悬停鼓包。时长越大复原越慢，弹性越大回弹越明显。Input 绘制与放大、Segmented 点击残留使用各自的时长。",
-  pop: "Select 列表展开、Switch 关联区域展开、Bezier 预设切换、Alert / Message / Toast 入场，以及参数分组展开。时长越大越慢，弹性越大回弹越明显。",
+  snappy: "Slider 点击轨道与手柄放大、Button 跟随与按压、Switch 滑动、Segmented 前沿、Checkbox 勾选、Tabs 指示条。时长越大越慢，弹性越大回弹越明显。",
+  soft: "Slider 离开复原、Timeline 松手回弹、Button 回弹、Segmented 后沿和悬停鼓包。时长越大复原越慢，弹性越大回弹越明显。Input 绘制与放大、Segmented 点击残留使用各自的时长。",
+  pop: "Switch 关联区域展开、Alert / Message / Toast 入场，以及参数分组展开。时长越大越慢，弹性越大回弹越明显。",
   pluck: "Timeline 鼠标划过后的拨弦回弹。时长越大余振越久，弹性越大振动越明显；幅度由拨弦幅度和划过反馈强度决定。",
 };
 
@@ -212,5 +223,6 @@ export const componentMeta: Record<ComponentId, { name: string; en: string; meta
   select: { name: "下拉选择", en: "Select", metaphor: "列表从入口处被撑开、生长出来" },
   checkbox: { name: "复选框", en: "Checkbox", metaphor: "轻按收缩，勾选后柔和弹回" },
   feedback: { name: "反馈提示", en: "Alert / Message / Toast", metaphor: "气泡向上弹出，点击后膨胀消散" },
+  scrollbar: { name: "滚动条", en: "Scrollbar", metaphor: "软轨道里的刚性滑块，碰到尽头被轻轻压扁" },
   tabs: { name: "标签页", en: "Tabs", metaphor: "指示条跟随选择，内容轻盈交接" },
 };

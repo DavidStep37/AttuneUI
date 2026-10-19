@@ -43,7 +43,7 @@ try {
     await pause();
     assert.equal(await page.evaluate(() => document.documentElement.dataset.proposal), id);
     assert.equal(new URL(page.url()).searchParams.get("proposal"), id);
-    assert.equal(await page.$$eval(".pg-card", (els) => els.length), 11);
+    assert.equal(await page.$$eval(".pg-card", (els) => els.length), 12);
     await viewportFits();
     const slider = '.study-inspector [role="slider"][aria-label="展开间距"]';
     await page.focus(slider);

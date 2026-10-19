@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { AnimatePresence, motion, useIsPresent } from "motion/react";
 import { Button } from "../components/Button";
 import { PanelGroup, ParamControls } from "../components/Panel";
+import { ScrollArea } from "../components/ScrollArea";
 import { resolveComponent, resolveDefault, springTransition, useFeelState } from "../core/feel";
 import { componentMeta, componentSchemas, sharedSchema, springSchema, type ComponentId, type ParamDef, type ParamValue } from "../core/schema";
 import { type SharedFeel, type SpringName } from "../tokens/tokens";
@@ -9,7 +10,7 @@ import { demos, hints } from "./demos";
 import { IconCheck, IconClose, IconCopy, IconExpand, IconReset } from "./icons";
 import { useStore } from "./store";
 
-export const ORDER: ComponentId[] = ["slider", "input", "button", "timeline", "bezier", "switch", "segmented", "select", "checkbox", "feedback", "tabs"];
+export const ORDER: ComponentId[] = ["slider", "input", "button", "timeline", "bezier", "switch", "segmented", "select", "checkbox", "feedback", "tabs", "scrollbar"];
 
 export function Gallery() {
   const [openId, setOpenId] = useState<ComponentId | null>(null);
@@ -205,7 +206,7 @@ function ComponentModal({ id, onClose }: { id: ComponentId; onClose: () => void 
               <IconClose />
             </button>
           </div>
-          <div className="pg-modal-panel-body">
+          <ScrollArea className="pg-modal-panel-scroll" viewportClassName="pg-modal-panel-body">
             <ParamControls
               schema={schema}
               values={values}
@@ -232,7 +233,7 @@ function ComponentModal({ id, onClose }: { id: ComponentId; onClose: () => void 
                 onReset={(k) => store.resetSpringKey(k as SpringName)}
               />
             </PanelGroup>
-          </div>
+          </ScrollArea>
           <div className="pg-modal-panel-foot">
             <Button size="sm" icon={<IconReset />} onClick={() => store.resetComponent(id)} disabled={!nChanged}>
               重置组件参数

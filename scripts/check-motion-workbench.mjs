@@ -29,7 +29,7 @@ try {
   await page.setViewport({ width: 1440, height: 960 });
   await page.goto(url, { waitUntil: 'networkidle0' }); await pause();
   assert.equal(await page.$eval('.at-mw-shell', el => el.dataset.mode), 'minimized');
-  const initial = await bounds(); assert(Math.abs(initial.x - (1440 - 244) / 2) < 1); assert.equal(initial.y, 960 - 52 - 12);
+  const initial = await bounds(); assert(Math.abs(initial.x - (1440 - initial.w) / 2) < 1); assert(initial.w < 160, `Toolbar hugs its content: ${initial.w}`); assert.equal(initial.y, 960 - 52 - 12);
   const bodyStyle = await page.evaluate(() => ({ font: getComputedStyle(document.body).fontSize, color: getComputedStyle(document.body).color }));
   await page.screenshot({ path: '.backup/motion-review/01-toolbar.png' });
 
@@ -44,7 +44,7 @@ try {
   await page.focus('.at-mw-grip'); await page.keyboard.press('ArrowLeft'); await pause();
   assert.equal(await page.$eval('.at-mw-shell', el => el.dataset.anchor), 'bottom-center');
   await click('展开调参面板');
-  assert.equal(await page.$$eval('.at-mw-scroll > .at-group', els => els.length), 3);
+  assert.equal(await page.$$eval('.at-mw-scroll > .at-scroll-content > .at-group', els => els.length), 3);
   assert.match(await page.$eval('.at-mw-shell', el => getComputedStyle(el).backdropFilter), /blur/);
   await page.screenshot({ path: '.backup/motion-review/02-floating.png' });
 
@@ -56,7 +56,7 @@ try {
   assert.equal(await page.$eval('[data-animation="entrance"]', el => el.getAnimations()[0].effect.getTiming().duration), 650);
   // Numeric editing must hit the same state as the slider.
   const input = '.at-mw-scroll .at-group:first-child input[aria-label="渐入时长"]';
-  await page.click('.at-mw-scroll > .at-group:first-child [role="spinbutton"][aria-label="渐入时长"]');
+  await page.click('.at-mw-scroll > .at-scroll-content > .at-group:first-child [role="spinbutton"][aria-label="渐入时长"]');
   await page.waitForSelector(input); await page.keyboard.down('Control'); await page.keyboard.press('KeyA'); await page.keyboard.up('Control'); await page.keyboard.type('920'); await page.keyboard.press('Enter'); await pause();
   assert.equal((await snapshot()).animations.entrance.duration, 920);
   await page.focus('.at-mw-scroll .at-group:nth-child(2) [role="slider"][aria-label="单程时长"]'); await page.keyboard.press('ArrowRight'); await pause();
@@ -71,13 +71,20 @@ try {
   await dragTo(480, 150); const remembered = await bounds();
   await click('收起调参面板'); await click('展开调参面板');
   const restored = await bounds(); assert(Math.abs(restored.x - remembered.x) < 1 && Math.abs(restored.y - remembered.y) < 1);
-  await click('切换侧边栏');
-  assert.equal(await page.$eval('.at-mw-shell', el => el.dataset.docked), 'true');
-  assert.equal(await page.$eval('[data-attune-host]', el => Math.round(el.getBoundingClientRect().width)), 1080);
-  await page.screenshot({ path: '.backup/motion-review/03-sidebar.png' });
-  await click('切换悬浮面板'); assert(Math.abs((await bounds()).x - remembered.x) < 1);
-  await click('切换侧边栏'); await click('收起调参面板');
-  assert.equal(await page.$eval('[data-attune-host]', el => Math.round(el.getBoundingClientRect().width)), 1440);
+  // No sidebar / Push: the host page is never reflowed.
+  assert.equal(await page.$('[aria-label="切换侧边栏"], [data-attune-host]'), null, 'Sidebar mode removed');
+  assert.equal(await page.$eval('.ml-page', el => Math.round(el.getBoundingClientRect().width)), 1440);
+  // Bottom-edge height resize: top edge stays, bounded by min height and the viewport, remembered.
+  const resizeBy = async dy => { const h = await (await page.$('.at-mw-resize')).boundingBox(); await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await page.mouse.down(); await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2 + dy, { steps: 10 }); await page.mouse.up(); await pause(); };
+  const tall = await bounds(); await resizeBy(-200); const short = await bounds();
+  assert(Math.abs(short.h - (tall.h - 200)) < 2 && Math.abs(short.y - tall.y) < 1, `Resize shorter keeps the top: ${JSON.stringify([tall, short])}`);
+  await resizeBy(-2000); assert(Math.abs((await bounds()).h - 260) < 1, 'Minimum height');
+  await resizeBy(2000); const maxed = await bounds(); assert(Math.abs(maxed.y + maxed.h - (960 - 12)) < 1.5, `Bounded by viewport: ${JSON.stringify(maxed)}`);
+  await page.focus('.at-mw-resize'); await page.keyboard.press('ArrowUp'); await pause(); assert(Math.abs((await bounds()).h - (maxed.h - 20)) < 1, 'Keyboard resize');
+  await resizeBy(-150); const resized = await bounds();
+  await click('收起调参面板'); await click('展开调参面板'); assert(Math.abs((await bounds()).h - resized.h) < 1, 'Height remembered');
+  await page.screenshot({ path: '.backup/motion-review/03-resized.png' });
+  await click('收起调参面板');
 
   // Replay is scoped to registered adapters; menu hover, direct click and keyboard all work.
   const allBefore = await counts(); await click('重播全部动效'); const allAfter = await counts();
@@ -87,11 +94,11 @@ try {
   const item = await page.$('[role="menuitem"]'); await item.hover(); await pause(250); assert(await page.$('[role="menu"]'));
   const oneBefore = await counts(); await item.click(); await pause(); const oneAfter = await counts();
   assert.equal(oneAfter.entrance, oneBefore.entrance + 1); assert.equal(oneAfter.hover, oneBefore.hover); assert.equal(oneAfter.notice, oneBefore.notice);
-  await page.focus('[aria-label="选择单个动效"]'); await page.keyboard.press('ArrowDown'); await pause(100); await page.keyboard.press('ArrowDown');
+  assert.equal(await page.$('.at-mw-divider, [aria-label="选择单个动效"]'), null, 'Toolbar has no dividers or separate menu arrow');
+  await page.mouse.move(10, 450); await pause(300);
+  await page.focus('[aria-label="重播全部动效"]'); await page.keyboard.press('ArrowDown'); await pause(100); await page.keyboard.press('ArrowDown');
   const keyBefore = await counts(); await page.keyboard.press('Enter'); await pause(); const keyAfter = await counts(); assert.equal(keyAfter.hover, keyBefore.hover + 1);
   await page.keyboard.press('ArrowDown'); await pause(100); await page.keyboard.press('Escape'); assert.equal(await page.$('[role="menu"]'), null);
-  await page.mouse.move(10, 450); await click('选择单个动效'); assert(await page.$('[role="menu"]'), 'Arrow click opens menu without hover cancelling it');
-  await page.keyboard.press('Escape');
 
   // Real clipboard denial must offer data, without a false success.
   await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async () => { throw new Error('denied'); } }));
@@ -100,15 +107,13 @@ try {
   assert.match(await page.$eval('[role="status"]', el => el.textContent), /剪贴板不可用/);
   await page.reload({ waitUntil: 'networkidle0' }); await click('展开调参面板');
   assert(Math.abs((await bounds()).x - remembered.x) < 1, 'Position persisted across reload');
+  assert(Math.abs((await bounds()).h - resized.h) < 1, 'Height persisted across reload');
 
-  // Transition has intermediate dimensions and can be reversed without a stuck host margin.
-  await page.click('[aria-label="切换侧边栏"]'); await pause(80);
-  const during = await page.$eval('[data-attune-host]', el => el.getBoundingClientRect().width);
-  assert(during > 1080 && during < 1440, `No intermediate Push frame: ${during}`);
-  await page.click('[aria-label="切换悬浮面板"]'); await pause();
-  assert.equal(await page.$eval('[data-attune-host]', el => Math.round(el.getBoundingClientRect().width)), 1440);
-  await click('切换侧边栏');
-  for (const width of [390, 320]) { await page.setViewport({ width, height: 844 }); await pause(); await fits(); assert.equal(await page.$eval('.at-mw-shell', el => el.dataset.docked), undefined); }
+  // Collapse animates through intermediate sizes and can be reversed mid-way.
+  await page.click('[aria-label="收起调参面板"]'); await pause(80);
+  const during = await bounds(); assert(during.w > 146 && during.w < 360, `No intermediate collapse frame: ${during.w}`);
+  await pause(); await click('展开调参面板');
+  for (const width of [390, 320]) { await page.setViewport({ width, height: 844 }); await pause(); await fits(); }
   await page.screenshot({ path: '.backup/motion-review/04-mobile.png' });
   await click('收起调参面板'); await fits();
   await page.setViewport({ width: 1440, height: 960 }); await pause();
@@ -118,9 +123,8 @@ try {
   const cdp = await page.createCDPSession(); await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'reduce' }] }); await pause();
   assert.equal(await page.$eval('.at-mw-root', el => el.dataset.atMaterial), 'solid');
   assert.equal(await page.$eval('.at-mw-shell', el => getComputedStyle(el).backdropFilter), 'none');
-  await click('切换侧边栏');
-  await page.$eval('.ml-bottom button', el => el.click()); await pause(); assert.equal(await page.$('.at-mw-root'), null); assert.equal(await page.$('[data-attune-host]'), null);
+  await page.$eval('.ml-bottom button', el => el.click()); await pause(); assert.equal(await page.$('.at-mw-root'), null);
   assert.deepEqual(await page.evaluate(() => ({ font: getComputedStyle(document.body).fontSize, color: getComputedStyle(document.body).color })), bodyStyle);
   assert.deepEqual(errors, []);
-  console.log(`PASS: six anchors, position memory, real Push + interruption, 3 live adapters, numeric/slider updates, replay isolation, real clipboard + denial, 320/390px, reduced preferences, unmount.\nTested ${url}`);
+  console.log(`PASS: six anchors, position + height memory, bottom-edge resize (min/viewport/keyboard), no host reflow, collapse interruption, 3 live adapters, numeric/slider updates, replay isolation, real clipboard + denial, 320/390px, reduced preferences, unmount.\nTested ${url}`);
 } finally { await browser.close(); }

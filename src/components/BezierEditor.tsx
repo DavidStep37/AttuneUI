@@ -4,7 +4,6 @@ import { useFeel } from "../core/feel";
 import { bezierEasing, clamp, rubber } from "../core/geometry";
 import { useAnimated } from "../core/hooks";
 import type { ResolvedFeel } from "../core/schema";
-import { NumberInput } from "./Input";
 import { Select } from "./Select";
 import { MotionChevronDown } from "../core/icons";
 import { BezierSides } from "./BezierSides";
@@ -49,9 +48,8 @@ export type BezierEditorProps = {
   size?: number;
   showInputs?: boolean;
   showPresets?: boolean;
+  /** the moving dot on the curve that previews the easing */
   showPreview?: boolean;
-  /** show the horizontal preview track under the graph */
-  showTrack?: boolean;
   /** how presets are picked: the radial disc (fixed small set) or a dropdown (default) */
   presetPicker?: "radial" | "select";
   feel?: Partial<ResolvedFeel<"bezier">>;
@@ -60,7 +58,7 @@ export type BezierEditorProps = {
 /**
  * Bezier Editor — 控制点牵拉一根有弹性的线 (Handoff §5.5)
  */
-export function BezierEditor({ value, onChange, size = 200, showInputs = true, showPresets = true, showPreview = true, showTrack = true, presetPicker = "select", feel: local }: BezierEditorProps) {
+export function BezierEditor({ value, onChange, size = 200, showInputs = true, showPresets = true, showPreview = true, presetPicker = "select", feel: local }: BezierEditorProps) {
   const { p, t, deform, reduced } = useFeel("bezier", local);
   const plotClipId = useId();
   const pad = 10;
@@ -163,13 +161,12 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
   };
   const hoverOn = (h: typeof hov1, on: boolean) => h.to(on ? 1 : 0, t(p.recover, { exit: !on }));
 
-  const setAt = (i: number, n: number) => {
-    const next = [...value] as Bezier;
-    next[i] = n;
-    onChange(next);
-  };
-
   const grid = [0.25, 0.5, 0.75];
+  // The curve's fixed endpoints sit on the bottom-left and top-right corners: keep those
+  // square so the frame's corner is exactly the endpoint; round only the two free corners.
+  const R = 8;
+  const [L, T, Rt, B] = [sx(0), sy(1), sx(1), sy(0)];
+  const plotPath = `M${L} ${B} V${T + R} Q${L} ${T} ${L + R} ${T} H${Rt} V${B - R} Q${Rt} ${B} ${Rt - R} ${B} Z`;
 
   return (
     <div className="at-bezier" data-at-interactive>
@@ -177,10 +174,10 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
         <svg ref={svgRef} width={S + pad * 2} height={H + pad * 2} className="at-bezier-svg">
           <defs>
             <clipPath id={plotClipId}>
-              <rect x={sx(0)} y={sy(1)} width={S} height={S} rx={8} />
+              <path d={plotPath} />
             </clipPath>
           </defs>
-          <rect className="at-bezier-plot" x={sx(0)} y={sy(1)} width={S} height={S} rx={8} />
+          <path className="at-bezier-plot" d={plotPath} />
           <g clipPath={`url(#${plotClipId})`}>
             <BezierSides values={v.map(a => a.mv)} dragging={dragging} size={S} x={sx(0)} y={sy(1)} reduced={reduced || !deform} spring={p.sideSpring} />
             {grid.map((g) => (
@@ -191,7 +188,7 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
             ))}
             <line className="at-bezier-diag" x1={sx(0)} y1={sy(0)} x2={sx(1)} y2={sy(1)} />
           </g>
-          <rect className="at-bezier-border" x={sx(0)} y={sy(1)} width={S} height={S} rx={8} />
+          <path className="at-bezier-border" d={plotPath} />
           <motion.line className="at-bezier-arm" x1={sx(0)} y1={sy(0)} x2={c1x} y2={c1y} style={{ strokeWidth: w1 }} />
           <motion.line className="at-bezier-arm" x1={sx(1)} y1={sy(1)} x2={c2x} y2={c2y} style={{ strokeWidth: w2 }} />
           <motion.path className="at-bezier-curve" d={curve} />
@@ -224,10 +221,10 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
             </g>
           ))}
         </svg>
-        {showPreview && showTrack && <PreviewBar value={value} width={S} />}
       </div>
       {(showInputs || showPresets) && (
         <div className="at-bezier-controls">
+          {showInputs && <BezierInput value={value} onChange={onChange} />}
           {showPresets && (
             <Select
               aria-label="缓动预设"
@@ -247,24 +244,6 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
                 if (pr) onChange(pr.curve);
               }}
             />
-          )}
-          {showInputs && (
-            <div className="at-bezier-inputs">
-              {(["x1", "y1", "x2", "y2"] as const).map((n, i) => (
-                <label key={n} className="at-bezier-coord">
-                  <span>{n}</span>
-                  <NumberInput
-                    aria-label={n}
-                    value={value[i]}
-                    step={0.01}
-                    min={i % 2 === 0 ? 0 : -1}
-                    max={i % 2 === 0 ? 1 : 2}
-                    minChars={4}
-                    onChange={(nv) => setAt(i, nv)}
-                  />
-                </label>
-              ))}
-            </div>
           )}
         </div>
       )}
@@ -295,13 +274,60 @@ function CurveDot({ value, sx, sy }: { value: Bezier; sx: (x: number) => number;
   return <motion.circle className="at-bezier-dot" cx={cx} cy={cy} r={2} />;
 }
 
-function PreviewBar({ value, width }: { value: Bezier; width: number }) {
-  const { prog } = useLoopProgress(value);
-  const x = useTransform(prog, (v) => v * (width - 12));
+/** Range the text field accepts; matches what dragging can produce. */
+const LIMITS: [number, number][] = [[0, 1], [-1, 2], [0, 1], [-1, 2]];
+const formatInput = (c: Bezier) => c.map((v) => +v.toFixed(3)).join(", ");
+
+/** "x1, y1, x2, y2" → Bezier, clamped to LIMITS; null unless exactly four finite numbers. */
+export function parseBezier(text: string): Bezier | null {
+  const parts = text.replace(/^\s*cubic-bezier\(|\)\s*$/g, "").split(/[\s,，]+/).filter(Boolean).map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return null;
+  return parts.map((n, i) => Math.round(clamp(n, LIMITS[i][0], LIMITS[i][1]) * 1000) / 1000) as Bezier;
+}
+
+/**
+ * One text field for all four control values, comma separated. Commits on Enter / blur;
+ * Esc or unparsable text restores the current curve (briefly marked invalid).
+ */
+function BezierInput({ value, onChange }: { value: Bezier; onChange: (v: Bezier) => void }) {
+  const [draft, setDraft] = useState(() => formatInput(value));
+  const [editing, setEditing] = useState(false);
+  const [invalid, setInvalid] = useState(false);
+  useEffect(() => {
+    if (!editing) setDraft(formatInput(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value[0], value[1], value[2], value[3], editing]);
+  useEffect(() => {
+    if (!invalid) return;
+    const id = setTimeout(() => setInvalid(false), 900);
+    return () => clearTimeout(id);
+  }, [invalid]);
+  const commit = () => {
+    const next = parseBezier(draft);
+    if (!next) { setInvalid(true); setDraft(formatInput(value)); return; }
+    setInvalid(false);
+    if (!same(next, value)) onChange(next);
+    setDraft(formatInput(next));
+  };
   return (
-    <div className="at-bezier-preview" style={{ width }} aria-hidden>
-      <motion.span className="at-bezier-preview-dot" style={{ x }} />
-    </div>
+    <input
+      className="at-bezier-input"
+      type="text"
+      inputMode="decimal"
+      spellCheck={false}
+      autoComplete="off"
+      aria-label="贝塞尔曲线数值 x1, y1, x2, y2"
+      aria-invalid={invalid || undefined}
+      placeholder="x1,y1,x2,y2"
+      value={draft}
+      onFocus={(e) => { setEditing(true); e.currentTarget.select(); }}
+      onChange={(e) => { setDraft(e.target.value); setInvalid(false); }}
+      onBlur={() => { commit(); setEditing(false); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") { e.preventDefault(); commit(); }
+        else if (e.key === "Escape") { e.preventDefault(); setDraft(formatInput(value)); e.currentTarget.blur(); }
+      }}
+    />
   );
 }
 
