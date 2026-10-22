@@ -23,6 +23,7 @@ function SliderDemo({ variant }: { variant: Variant }) {
   const [o, setO] = useDemo("slider.opacity", 60);
   const [s, setS] = useDemo("slider.scale", 1);
   const [bare, setBare] = useDemo("slider.bare", 0.35);
+  const [seg, setSeg] = useDemo("slider.segmented", 200);
   return (
     <div className="pg-rows" data-variant={variant}>
       <SliderField label="时长" value={d} onChange={setD} min={0} max={1000} step={10} unit="ms" />
@@ -30,6 +31,9 @@ function SliderDemo({ variant }: { variant: Variant }) {
       {variant === "stage" && (
         <>
           <SliderField label="起始缩放" value={s} onChange={setS} min={0.5} max={1.5} step={0.01} unit="×" />
+          <div className="pg-stage-caption">分段模式（如加载时长 token）</div>
+          <SliderField label="时长 token" value={seg} onChange={setSeg} min={0} max={800} step={10} unit="ms"
+            marks={[{ value: 0 }, ...[100, 150, 200, 250, 300].map((v, i) => ({ value: v, label: `short-${i + 1}` })), ...[400, 500, 600, 700, 800].map((v, i) => ({ value: v, label: `medium-${i + 1}` }))]} />
           <div className="pg-stage-caption">单独使用</div>
           <Slider value={bare} onChange={setBare} min={0} max={1} step={0.01} aria-label="单独的滑块" />
         </>
@@ -340,6 +344,7 @@ export const hints: Record<ComponentId, string[]> = {
     "拖到端点后继续拖：白色胶囊手柄横向拉长，鼓包贴合包裹，整条轨道收细；松手一起回弹",
     "点击轨道：手柄滑过去，数值同步滚动",
     "拖动左侧标签也能调值；方向键调整，Shift 加大步长",
+    "分段模式（弹窗中最后一条）：小圆点标记各段，拖近时手柄被吸住、拉远才跳开；松手、点击和方向键都落在段点上",
   ],
   input: [
     "悬停数字：下划线两端延伸、转弯上行，再在顶部汇合，描出较小的圆角外框",

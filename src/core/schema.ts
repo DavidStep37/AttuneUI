@@ -77,6 +77,10 @@ export const componentSchemas = {
     n("edgePadding", "内外层间距", "端点", 1, 6, 0.5, { default: 2.5, unit: "px" }),
     n("edgeResistance", "极值阻力", "端点", 0, 1, 0.01, { default: 0.5 }),
     n("maxStretch", "最大拉伸", "端点", 0, 24, 1, { inherit: "edgeMaxStretch", unit: "px" }),
+    n("markSize", "刻度点大小", "分段", 2, 6, 0.25, { default: 4, unit: "px", hint: "分段模式（传入 marks，如加载 token 后）轨道上标记各段位置的小圆点直径" }),
+    n("snapRadius", "吸附范围", "分段", 4, 30, 1, { default: 9, unit: "px", hint: "拖动时手柄进入刻度点这个距离内开始被吸住；刻度较密时自动缩到相邻间距的一半" }),
+    n("snapStrength", "吸附强度", "分段", 0, 1, 0.01, { default: 1, hint: "越大越黏：靠近刻度时手柄停在点上，拉远到吸附范围边缘才跳开；0 为自由拖动" }),
+    sd("snapSpring", "落点回弹", "分段", { visualDuration: 0.2, bounce: 0.2 }, "松手、点击轨道或键盘切换时，手柄滑到所选刻度的弹簧"),
   ],
   input: [
     n("expand", "外框外扩", "外框", 0, 10, 0.5, { default: 3, unit: "px", hint: "描边闭合时，外框各边向外扩出的距离；数字保持居中" }),

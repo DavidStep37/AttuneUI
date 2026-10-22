@@ -130,9 +130,22 @@ export function ScrollArea({ viewportClassName, viewportRef, feel: local, classN
     const r = barRef.current?.getBoundingClientRect();
     return !!r && clientX >= r.left - REACH;
   };
+  /**
+   * While another control is being operated (a button is held for a slider drag, a curve handle, a
+   * text selection…) or the pointer sits on another interactive element, the bar must not react —
+   * otherwise dragging a slider toward the right edge would grab the scrollbar's hover state.
+   */
+  const busyElsewhere = (e: PointerEvent<HTMLDivElement>) => {
+    if (drag.current) return false;
+    if (e.buttons !== 0) return true;
+    const target = e.target as Element | null;
+    return !!target && !barRef.current?.contains(target)
+      && !!target.closest('[data-at-interactive], button, input, textarea, select, [role="slider"], [contenteditable="true"]');
+  };
   const move = (e: PointerEvent<HTMLDivElement>) => {
     onPointerMove?.(e);
     if (e.pointerType !== "mouse" || !scrollable) return;
+    if (busyElsewhere(e)) { if (near) setNear(false); return; }
     if (!shown) reveal();
     const n = isNear(e.clientX);
     if (n !== near) setNear(n);

@@ -3,40 +3,66 @@ name: attune-motion
 description: 为本地预览页面编写或调整前端动效时，使用 AttuneUI 挂载原生磨砂玻璃调参面板，让设计师精调数值、重播全部或单项动效并复制完整 JSON。适用于入退场、hover、页面转场等动效设计与调试；不用于纯静态页面或仅讨论动效概念。
 ---
 
-# Attune Motion · v0.1.1
+# Attune Motion · v0.2.0
 
 把“快一点、慢一点”变为页面上可直接调整的参数。编写或修改用户要求的动效时，同时接入 AttuneUI 调参面板，将参数绑定到真实动效。使用当前页面的设计，不为了展示调参工具重画用户页面。
+
+本 Skill 自带完整组件源码快照（`assets/attune-source`）、可运行示例（`assets/example`）、视觉基准截图（`assets/reference`）和浏览器自检脚本（`scripts/verify-example.mjs`），不依赖维护仓库、npm 私有包或本机绝对路径。任何代理（Codex、Claude Code、Cursor、pi 等）都按本文件执行；不支持 `$skill` 语法的代理直接阅读本文件。面板外观由源码决定：**原样安装、不改 `.at-*` 样式、不自己拼装面板**，才能得到与 [视觉基准](references/visual-spec.md) 一致的效果。需要 Node 18+。
+
+## 0. 先选界面方案
+
+接入前确认用哪种界面。用户已经说明时直接采用；否则用代理的提问工具（如 ask_user）给出两个选项，不要替用户决定：
+
+| 方案 | 适合 | 安装 | 按哪份说明做 |
+| --- | --- | --- | --- |
+| **A. AttuneUI 组件库**（推荐） | 想要与维护版完全一致、已验证的面板与手感 | `install.mjs --target <dir>`（默认 `--ui attune`） | 本文件全部内容 + [视觉基准](references/visual-spec.md) |
+| **B. 自己绘制** | 希望面板跟随宿主项目的组件库和视觉风格 | `install.mjs --ui custom --target <dir>`，只装无依赖的数据契约 `model.ts` | [自绘方案](references/custom-ui.md)；行为、导出 JSON 与 token 规则同 A，外观自定 |
+
+两种方案的配置、复制出的 JSON 和 token 格式完全相同。下面“接入”与“面板必须遵守的行为”两种方案都适用；“面板布局”“选择 AttuneUI 组件”只适用于 A。
 
 ## 接入
 
 1. 先检查项目入口、前端框架、动效实现与包管理器。第一版附带模板支持客户端 React 19 + TypeScript，使用 Motion 和 Lucide。已有 GSAP、CSS 或 Web Animations 动效可保留，通过回调绑定。其他框架先说明适配缺口；不要为工具迁移整个应用，也不要宣称已经验证 SSR。
-2. 读 [接入与数据契约](references/integration.md)，检查是否已有 AttuneUI / MotionWorkbench，优先复用。如果缺少源码，用本 Skill 的 `scripts/install.mjs --target <项目内源码目录>` 安装 `assets/attune-source`；脚本拒绝覆盖已有目录。源码缺失意味着 Skill 未完成打包，按脚本报错处理，不猜 npm 包名或远程下载地址。
+2. 读 [接入与数据契约](references/integration.md)，检查是否已有 AttuneUI / MotionWorkbench（或方案 B 的 `model.ts`），优先复用。如果缺少源码，用本 Skill 的 `scripts/install.mjs --target <项目内源码目录>`（方案 B 加 `--ui custom`）安装；脚本拒绝覆盖已有目录。源码缺失意味着 Skill 未完成打包，按脚本报错处理，不猜 npm 包名或远程下载地址。
 3. 按项目的包管理器补足兼容依赖，沿用现有 React 实例和锁文件。安装脚本输出包内快照的依赖信息；不要创建第二个 React 副本。导入 `styles/attune.css`，面板内部已包含 `AttuneRoot`，不要调用全局 `injectTokens()`。
 4. 枚举此次页面中需要调试的动效，赋予稳定、唯一的 `id` 和可读名称。每组只暴露有意义的参数，标明单位、默认值、范围和步长。用同一份受控配置驱动动效与控件；数值输入应在下一次预览中确实生效。参考 `assets/example/main.tsx` 的三种真实 adapter，不把示例卡片当成必须添加的产品内容。
 5. 在预览模式挂载 `MotionWorkbench`（可把页面作为 children 传入，也可与页面并列挂载；工具只悬浮在页面之上，不改变宿主布局）。默认只在开发环境加载；生产预览如需要工具，应有明确开关。Vite 可用 `import.meta.env.DEV` + 动态导入本地 wrapper，避免在生产入口静态引用工具 CSS。其他构建器使用其既有环境开关。
-6. 按 [验证清单](references/verification.md) 实际启动页面测试，再交付预览地址、动效参数清单、JSON 使用方式与未验证的环境。不能用“编译成功”替代浏览器测试。
+6. 对照 [视觉基准](references/visual-spec.md) 与 `assets/reference/*.png` 检查面板外观；若宿主有全局 CSS 重置（如 Tailwind preflight、全局 `button`/`input` 样式）改变了面板，用作用域更小的宿主样式修正宿主，而不是改 Attune 源码。
+7. 按 [验证清单](references/verification.md) 实际启动页面测试，再交付预览地址、动效参数清单、JSON 使用方式与未验证的环境。不能用“编译成功”替代浏览器测试。
 
 ## 面板必须遵守的行为
 
 直接使用模板已有交互，除非用户要求改变：
 
-- 默认是底部居中的 Toolbar。通过独立拖动手柄吸附左上、中上、右上、左下、中下、右下六点；方向键同样可切换吸附点。
+- 默认是底部居中的 Toolbar。通过独立拖动手柄（六点竖排图标）吸附左上、中上、右上、左下、中下、右下六点；方向键同样可切换吸附点。
 - Toolbar 的吸附点与展开面板位置独立。首次展开在右上角，与 Toolbar 所在点无关；用户拖动展开面板后，收起再展开及刷新都恢复其最后位置，且按当前视口收进屏幕。
-- 只有 Toolbar 与悬浮面板两种形态，没有侧栏/Push 模式，不推挤或重排宿主页面。悬浮面板宽 360px，默认高 660px；拖动底边（或聚焦底边手柄按 ↑/↓，Shift 加大步长）调整高度，顶边保持不动，最小 260px、底部不超出视口；高度与位置一起记忆，“恢复面板位置”同时恢复默认高度。
+- 只有 Toolbar 与悬浮面板两种形态，没有侧栏/Push 模式，不推挤或重排宿主页面。悬浮面板宽 360px，默认高 660px；拖动底边（或聚焦底边手柄按 ↑/↓，Shift 加大步长）调整高度，顶边保持不动，最小 260px、底部不超出视口；高度与位置一起记忆。
 - 位置、宽高、圆角同步过渡，快速切换可打断，文字不做整体缩放。尊重系统减少动效/透明度。拖动不能抢夺 Slider、输入框和曲线的手势。
 - Toolbar 只有拖动手柄、展开、全部重播、复制四项，没有分割线和独立的菜单箭头；宽度贴合内容，四边内距一致。鼠标悬停播放键弹出单项重播菜单，键盘在播放键上按 ↑/↓ 打开、方向键导航、Enter 选择、Esc 关闭并回到播放键。菜单随 Toolbar 在上/下边缘翻转，并按吸附点居中或贴边，不超出视口。
 - 每个动效对应一组参数。全部重播调用所有注册 adapter；单项只调用选中 adapter。不能使用全页刷新、重新挂载宿主或 `document.getAnimations()` 扫描重播，否则会连工具自身一起触发。
+- 面板底部：左侧“重播全部”，右侧“重置全部参数”（所有组回到注册时的默认值，未修改时禁用）与“复制完整 JSON”。单项参数通过参数名后的圆点重置。
 - 复制的是**所有组的当前完整配置**，包含 schemaVersion、projectId、参数与单位，不能只复制修改项或当前组。成功读取剪贴板写入结果后才提示成功；失败显示可手动复制的 JSON。
+- 面板内滚动条不得干扰控件：拖动滑块、曲线控制点等操作进行中，或指针在其他控件上时，滚动条不响应悬停。
 
-## 面板布局
+## 设计组 Token
 
-- 面板 header 只有 “Attune Motion” 一行标题，不加动效数量或说明副标题。
+设计组已有 motion token（时长、距离、缓动）时，作为预设参数加载：
+
+- 面板底部“加载 Token”：一键加载 `tokenLibrary` 中预置的 token 集，或粘贴 JSON / 选择文件。已加载的集合按 projectId 记忆，header 下显示名称，可移除。也可以用 `tokens` prop 预先加载。
+- 支持的格式见 [接入与数据契约](references/integration.md#设计组-token)：嵌套分组、`Duration/short-1` 斜杠路径、W3C `$value`/`$type`/`$description`，值可写 `"200ms"`、`"0.2s"`、`"8px"`、`[x1,y1,x2,y2]`、`"cubic-bezier(…)"`。示例见 `assets/example/motion-tokens.ts`（设计组缓动与持续时间表）。
+- 字段与 token 的对应：字段写 `token: "Duration/short"` 精确限定；否则按单位匹配（ms/s → 时长，px → 距离），曲线字段使用 easing token 作为预设。范围包含 0 的字段保留 0（如无延迟），不导出为 token。
+- 加载后：匹配到 2 个及以上 token 的数值字段改为 **`TokenField`**——标签右侧是 token 下拉（显示 token 名与数值，如 `short-5 300 ms`），不显示滑块；下拉第一项“自定义”取消 token，展开连续滑块与数值输入自由调节，再选任一 token 即收起。不要把混合长/中/短的 token 画成刻度滑块（过密不可用）。当前值取最近的 token 并提示数量；“重置全部参数”回到取 token 后的默认值并退出自定义。`NumberField`（`control: "number"`）不受影响。
+- 复制的 JSON 增加 `tokenSet` 与各组 `tokens: { 参数: "Duration/short-3" }`，把结果写回代码时优先引用 token 名而不是裸数值。
+
+## 面板布局（方案 A）
+
+- 面板 header 只有 “Attune Motion” 一行标题和收起按钮（内边距 16px 20px），不加动效数量或说明副标题；footer 内边距 16px 20px；内容区上 12px、左右 24px。
 - 每个动效一个一级分组（`PanelGroup`）：编号在前、标题在后靠左，单项重播和折叠箭头在最右；悬停分组时整组呈现为卡片，卡片与面板边框、header 分隔线保持约 12px。参数被修改时，重置圆点紧跟在参数名后面，不放在左侧边缘。可选一行描述。所有字段直接放在该分组下，不再嵌套二级分组，包括曲线编辑器；字段标签说明它控制什么。
 - 分组没有左侧缩进：标题、描述和所有控件都从同一条左边线开始，控件左右撑满面板内容宽度，面板左右内距相等，视觉上不偏右。
 - 字段两侧对齐、撑满宽度：标签靠左；数值读数、Select（`width="100%"`）、开关都对齐到右侧边缘，不要挤在左侧。
 - 分组之间用很淡的细线分隔，组内控件保持紧凑；面板滚动区使用 AttuneUI `ScrollArea`，不显示原生滚动条，也不应出现横向滚动。
 
-## 选择 AttuneUI 组件
+## 选择 AttuneUI 组件（方案 A）
 
 保留蓝调石墨灰原生控件，毛玻璃仅作为面板材质。不要自行画另一套 slider / input，也不要套用宿主页面的品牌色覆盖控件。组件仍保持 sm/md/lg = 24/28/32px，占位与视觉形变分离。
 
@@ -46,7 +72,7 @@ description: 为本地预览页面编写或调整前端动效时，使用 Attune
 | 没有合理上限、不适合滑动的数值（如 ID、种子） | `NumberField`（number + control: number），仅作例外 |
 | 启用淡入、循环等布尔值 | `SwitchField`（boolean），开关在行右侧 |
 | 方向、预设等离散选项 | `Select`（select）；少量互斥选项可按需扩展为原生 Segmented |
-| cubic-bezier | `BezierEditor`（bezier，实验组件）：放在 stacked `Row` 中直接展示在一级分组内，曲线下方先是一个逗号分隔的数值输入框（placeholder `x1,y1,x2,y2`），再是预设圆盘 Select（`presetPicker="radial"`）；不加速度预览横条，曲线上的小点即预览 |
+| cubic-bezier | `BezierEditor`（bezier，实验组件）：放在 stacked `Row` 中直接展示在一级分组内，开启 `framed`：字段名在外，曲线、逗号分隔的数值输入框（placeholder `x1,y1,x2,y2`）、预设圆盘 Select（`presetPicker="radial"`）包在同一个下沉容器里，输入框与 Select 与曲线画布同宽居中、文字居中；不加速度预览横条，曲线上的小点即预览；预设或数值超出默认范围（如 back-out）时画布自动缩小以完整显示，不会画出外框；没有匹配预设时 Select 显示“自定义” |
 | 多阶段时间关系 | 先独立时长字段；需要联动再用原生 Timeline（实验组件），不要凭空提供无效轨道 |
 
 参数是宿主动效的参数，不是 AttuneUI 自身 `feel` 参数。若动画库用秒而界面用 ms，在 adapter 边界 `/1000`，配置中保持 ms。重播前取消同一动效的上次运行，卸载时清理动画/定时器；hover 与路由转场也提供可独立调用的预览入口。

@@ -6,6 +6,7 @@ import type { ControlSize, SpringToken } from "../tokens/tokens";
 import { NumberInput, useScrub } from "./Input";
 import { Slider } from "./Slider";
 import { ScrollArea } from "./ScrollArea";
+import { Select } from "./Select";
 import { IconClose, MotionChevronDown, MotionChevronUp } from "../core/icons";
 
 /* ------------------------------------------------------------------ Row */
@@ -70,10 +71,13 @@ export type SliderFieldProps = {
   modified?: boolean;
   onReset?: () => void;
   disabled?: boolean;
+  /** Segmented mode (e.g. loaded design tokens): the slider snaps to these; the matching label shows beside the readout. */
+  marks?: { value: number; label?: ReactNode }[];
 };
 
 /** Label and readout share a header; the slider spans the full row below it. */
-export function SliderField({ label, value, onChange, min, max, step = 1, unit, hint, modified, onReset, disabled, size = "md" }: SliderFieldProps) {
+export function SliderField({ label, value, onChange, min, max, step = 1, unit, hint, modified, onReset, disabled, marks, size = "md" }: SliderFieldProps) {
+  const token = marks?.find((m) => m.value === value)?.label;
   const scrub = useScrub({ value, onChange, step, min, max, disabled });
   return (
     <Row
@@ -85,8 +89,10 @@ export function SliderField({ label, value, onChange, min, max, step = 1, unit, 
       onReset={onReset}
       labelProps={{ ...scrub.handlers, "data-scrub": true, "data-scrubbing": scrub.scrubbing || undefined }}
     >
-      <Slider size={size} value={value} onChange={onChange} min={min} max={max} step={step} disabled={disabled} aria-label={typeof label === "string" ? label : undefined} />
+      <Slider size={size} value={value} onChange={onChange} min={min} max={max} step={step} disabled={disabled} marks={marks?.map((m) => m.value)} aria-label={typeof label === "string" ? label : undefined}
+        aria-valuetext={token !== undefined && typeof token === "string" ? `${value}${unit ?? ""} · ${token}` : undefined} />
       <div className="at-row-value">
+        {marks && token !== undefined && <span className="at-row-token" title="当前值对应的 token">{token}</span>}
         <NumberInput size={size} value={value} onChange={onChange} min={min} max={max} step={step} unit={unit} disabled={disabled} aria-label={typeof label === "string" ? label : undefined} />
       </div>
     </Row>
@@ -102,6 +108,79 @@ export function NumberField({ label, value, onChange, min, max, step = 1, unit, 
         <NumberInput size={size} disabled={disabled} aria-label={typeof label === "string" ? label : undefined} value={value} onChange={onChange} min={min} max={max} step={step} unit={unit} />
       </div>
     </Row>
+  );
+}
+
+/* ----------------------------------------------------------- TokenField */
+
+export type TokenFieldProps = Omit<SliderFieldProps, "marks"> & {
+  /** Preset values (e.g. design tokens), shown in a dropdown instead of a slider. */
+  tokens: { value: number; label: ReactNode }[];
+  /** Free mode: the dropdown shows “自定义” and a continuous slider + input appear below. */
+  custom: boolean;
+  onCustomChange: (custom: boolean) => void;
+};
+
+const CUSTOM = "__custom";
+
+/**
+ * A number that normally comes from a fixed token scale. Token mode: label + dropdown of tokens
+ * (name and value), no slider — dense, mixed scales (short / medium / long) stay readable.
+ * Choosing “自定义” leaves the scale: the slider and input expand below for free tuning;
+ * picking a token again collapses them.
+ */
+export function TokenField({ label, value, onChange, min, max, step = 1, unit, hint, modified, onReset, disabled, size = "md", tokens, custom, onCustomChange }: TokenFieldProps) {
+  const { springs, reduced } = useFeelState();
+  const [revealed, setRevealed] = useState(custom);
+  const index = tokens.findIndex((t) => t.value === value);
+  const selected = custom || index < 0 ? CUSTOM : String(index);
+  const text = (name: ReactNode, v: number) => (
+    <span className="at-token-option"><span className="at-token-option-name">{name}</span><span className="at-token-option-value">{v}{unit ? ` ${unit}` : ""}</span></span>
+  );
+  const a11y = typeof label === "string" ? label : undefined;
+  return (
+    <div className="at-token-field" data-custom={selected === CUSTOM || undefined}>
+      <Row size={size} label={label} hint={hint} modified={modified} onReset={onReset}>
+        <Select
+          size={size}
+          width="100%"
+          disabled={disabled}
+          aria-label={a11y ? `${a11y} token` : undefined}
+          value={selected}
+          maxVisible={7}
+          options={[
+            // Shows the live value only once chosen; in token mode it reads as an action.
+            { value: CUSTOM, label: selected === CUSTOM ? text("自定义", value) : <span className="at-token-option"><span className="at-token-option-name">自定义</span><span className="at-token-option-value">自由调节</span></span> },
+            ...tokens.map((t, i) => ({ value: String(i), label: text(t.label, t.value) })),
+          ]}
+          onChange={(k) => {
+            if (k === CUSTOM) { onCustomChange(true); return; }
+            onCustomChange(false);
+            onChange(tokens[Number(k)].value);
+          }}
+        />
+      </Row>
+      <AnimatePresence initial={false}>
+        {selected === CUSTOM && (
+          <motion.div
+            className="at-reveal"
+            data-revealed={revealed || undefined}
+            onAnimationStart={() => setRevealed(false)}
+            onAnimationComplete={() => setRevealed(true)}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1, transition: { height: springTransition(springs.pop, reduced), opacity: { duration: 0.16 } } }}
+            exit={{ height: 0, opacity: 0, transition: { height: springTransition(springs.pop, reduced, { exit: true }), opacity: { duration: 0.1 } } }}
+          >
+            <div className="at-token-field-free">
+              <Slider size={size} value={value} onChange={onChange} min={min} max={max} step={step} disabled={disabled} aria-label={a11y} />
+              <div className="at-row-value">
+                <NumberInput size={size} value={value} onChange={onChange} min={min} max={max} step={step} unit={unit} disabled={disabled} aria-label={a11y} />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 

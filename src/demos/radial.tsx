@@ -70,7 +70,12 @@ function Demo() {
           </PanelGroup>
           <PanelGroup title="悬停鼓包">
             <SliderField label="局部撑起" value={feel.bulge} onChange={set("bulge")} min={0} max={16} step={0.5} unit="px" />
-            <SliderField label="撑起范围" value={feel.bulgeWidth} onChange={set("bulgeWidth")} min={0.2} max={1.5} step={0.05} unit="×扇区" />
+            <SliderField label="撑起范围" value={feel.bulgeWidth} onChange={set("bulgeWidth")} min={0.2} max={1.5} step={0.05} unit="×" />
+          </PanelGroup>
+          <PanelGroup title="选中与填充">
+            <SliderField label="选中弧宽" value={feel.markWidth} onChange={set("markWidth")} min={2} max={14} step={0.5} unit="px" />
+            <SliderField label="填充时长" value={feel.fillSpring.visualDuration} onChange={(v) => setFeel((f) => ({ ...f, fillSpring: { ...f.fillSpring, visualDuration: v } }))} min={0.1} max={0.8} step={0.01} unit="s" />
+            <SliderField label="填充弹性" value={feel.fillSpring.bounce} onChange={(v) => setFeel((f) => ({ ...f, fillSpring: { ...f.fillSpring, bounce: v } }))} min={0} max={0.8} step={0.01} />
             <Row label="重置"><button type="button" className="rd-reset" onClick={() => setFeel(radialFeelDefaults)}>恢复默认</button></Row>
           </PanelGroup>
         </Panel>

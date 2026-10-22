@@ -286,7 +286,6 @@
 [data-proposal="liquid"] .at-seg-indicator { filter: drop-shadow(0 2px 5px color-mix(in srgb, var(--at-color-fill-primary) 40%, transparent)); }
 [data-proposal="liquid"] .at-select-trigger { background: rgba(255, 255, 255, 0.36); box-shadow: inset 0 1px 0 var(--lg-rim), inset 0 0 0 1px var(--lg-edge); }
 [data-proposal="liquid"][data-theme="dark"] .at-select-trigger { background: rgba(255, 255, 255, 0.08); }
-[data-proposal="liquid"] .at-select-pop { border-radius: 18px; }
 [data-proposal="liquid"] .pg-backdrop { -webkit-backdrop-filter: blur(10px) saturate(140%); backdrop-filter: blur(10px) saturate(140%); }
 [data-proposal="liquid"] .pg-modal-stage { background: rgba(255, 255, 255, 0.18); }
 [data-proposal="liquid"][data-theme="dark"] .pg-modal-stage { background: rgba(0, 0, 0, 0.12); }

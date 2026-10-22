@@ -66,6 +66,43 @@ function Preview() {
 
 参数默认只保存在内存；刷新恢复源码默认参数。面板位置以 `attune-motion:placement:v1:<projectId>` 单独存储；没有修改原 Playground 或 glass/liquid 的存储。需要跨刷新保存参数时，可基于已验证 schema 增加项目自己的存储，而不是直接信任 localStorage JSON。
 
+## 设计组 Token
+
+```tsx
+import { MotionWorkbench, parseMotionTokens } from './attune';
+const teamTokens = parseMotionTokens(teamTokenJson);          // 抛出的 Error.message 可直接展示
+<MotionWorkbench definitions={definitions} config={config} onChange={setConfig}
+  tokenLibrary={[teamTokens]}   // “加载 Token”弹层里一键加载
+  tokens={null}>                 // 可选：首次就加载；面板里用户的选择会被记忆并优先
+```
+
+接受的 token 文件形状（可混用）：
+
+```json
+{
+  "name": "设计组 Motion Token",
+  "Easing": { "easeOut": { "$value": [0.33, 1, 0.68, 1], "$description": "通用减速" }, "linear": "linear" },
+  "Duration": { "short-1": "100ms", "medium-1": "0.4s" },
+  "Duration/long-1": 1000,
+  "Distance": { "sm": "8px" }
+}
+```
+
+- 叶子值：数字、`"200ms"` / `"0.2s"` / `"8px"` / `"1rem"`、`[x1,y1,x2,y2]`、`"cubic-bezier(…)"`、`"0.32, 0, 0.67, 0"`、CSS 关键字 easing；W3C 形式 `{ "$value", "$type", "$description" }`。无单位数字按路径或 `$type` 判断（含 duration/delay/time 视为 ms）。
+- token 名为完整路径（`Duration/short-1`），显示名为最后一段或 `$description`；纯数字的末段与上一段合并（`Duration/short/1` → `short-1`）。
+- 字段映射：`{ type: "number", …, token: "Duration/medium" }` 只用路径包含该字符串的 token；不写时按 `unit`（ms/s → 时长，s 会自动换算；px → 距离），无单位字段不分段。`{ type: "bezier", token?: "Easing" }` 使用 easing token 作为预设（≤8 个用圆盘，否则下拉）。
+- 加载后导出 JSON 增加：
+
+```json
+{ "tokenSet": "设计组 Motion Token",
+  "animations": { "entrance": { "parameters": { "duration": 600 }, "tokens": { "duration": "Duration/medium-3" } } } }
+```
+
+  `tokens` 只列出恰好落在 token 上的参数；写回代码时用 token 名引用（例如 `motion.duration.medium3`），并保留 `parameters` 作为数值对照。
+- 纯逻辑函数 `parseMotionTokens`、`tokensForField`、`tokenNameFor`、`snapConfigToTokens` 都在 `workbench/model.ts`，方案 B 同样使用。
+- 面板中 token 字段用组件库的 `TokenField`（token 下拉 + “自定义”时展开的连续滑块），由 `MotionWorkbench` 自动选用。
+- 组件库另有 `Slider` / `SliderField` 的 `marks` 分段模式，只适合稀疏、均匀的刻度；混合长/中/短 token 不要用它。（`SliderField` 的 mark 可带 `label`，显示在读数旁）；手感参数 `markSize`、`snapRadius`、`snapStrength`、`snapSpring` 在 slider schema 的“分段”组。
+
 ## 面板与宿主布局
 
 工具只悬浮在页面之上，没有侧栏/Push 模式，不包裹、不推挤也不重排宿主布局；`children` 原样渲染，可省略并与页面并列挂载。展开面板宽 360px，默认高 660px，用户可拖动底边调整高度（最小 260px，不超出视口），高度与位置一起存入 `attune-motion:placement:v1:<projectId>`。

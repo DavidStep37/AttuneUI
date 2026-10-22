@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { motion, useAnimationFrame, useMotionValue, useMotionValueEvent, useTransform } from "motion/react";
+import { motion, useAnimationFrame, useMotionValue, useMotionValueEvent, useTransform, type MotionValue } from "motion/react";
 import { useFeel } from "../core/feel";
 import { clamp, snapSliderValue, rubber, nestedSlider, SLIDER_DOT, SLIDER_INNER_HALF } from "../core/geometry";
 import { isKeyboardModality, useAnimated, useLatest, useSize } from "../core/hooks";
@@ -21,8 +21,21 @@ export type SliderProps = {
   className?: string;
   "aria-label"?: string;
   "aria-valuetext"?: string;
+  /**
+   * Segmented mode: the only values the slider can settle on (e.g. design tokens). Dots mark them
+   * on the track, dragging is magnetically pulled toward the nearest one, release/click/keys land on one.
+   */
+  marks?: number[];
   feel?: Partial<ResolvedFeel<"slider">>;
 };
+
+/** One mark dot; white on the filled part, graphite on the bare track. */
+function MarkDot({ cx, at, frac, r }: { cx: number; at: number; frac: MotionValue<number>; r: number }) {
+  const on = useTransform(frac, (f) => f + 1e-4 >= at);
+  const fill = useTransform(on, (o) => (o ? "var(--at-color-slider-thumb)" : "var(--at-color-border-strong)"));
+  const opacity = useTransform(on, (o) => (o ? 0.6 : 1));
+  return <motion.circle className="at-slider-mark" cx={cx} cy={14} r={r} style={{ fill, opacity }} />;
+}
 
 /**
  * Slider — 刚性物体将软性物体撑开 (Handoff §5.1)
@@ -38,6 +51,7 @@ export function Slider({
   step = 0.01,
   disabled,
   className,
+  marks: rawMarks,
   feel: local,
   ...aria
 }: SliderProps) {
@@ -54,6 +68,9 @@ export function Slider({
   const stretchL = useAnimated(0);
   const stretchR = useAnimated(0);
 
+  const marks = rawMarks && rawMarks.length ? [...new Set(rawMarks.filter((m) => m >= min && m <= max))].sort((a, b) => a - b) : null;
+  const marksRef = useLatest(marks);
+  const rawFrac = useRef(0);
   const lastEmitted = useRef(value);
   const mode = useRef<null | "press" | "drag">(null);
   const drag = useRef({ grab: 0, startX: 0 });
@@ -131,6 +148,35 @@ export function Slider({
   const thumbH = useTransform(shape, (s) => s?.thumbH ?? SLIDER_DOT);
   const thumbR = useTransform(thumbH, h => h / 2);
 
+  /* ------------------------------------------------------- segmented */
+
+  /** Index of the mark nearest to a track fraction. */
+  const nearestMark = (f: number) => {
+    const m = marksRef.current!;
+    let best = 0;
+    for (let i = 1; i < m.length; i++) if (Math.abs(toFrac(m[i]) - f) < Math.abs(toFrac(m[best]) - f)) best = i;
+    return best;
+  };
+  const emitValue = (v: number) => {
+    if (v !== lastEmitted.current) {
+      lastEmitted.current = v;
+      onChangeRef.current(v);
+    }
+    return v;
+  };
+  /** Magnetic pull: inside the radius the thumb sticks to the mark, then lets go at the edge (dx·|dx|/R). */
+  const magnet = (px: number) => {
+    const m = marksRef.current!;
+    const i = nearestMark((px - margin) / span);
+    const mp = margin + toFrac(m[i]) * span;
+    const gaps = [i > 0 ? mp - (margin + toFrac(m[i - 1]) * span) : Infinity, i < m.length - 1 ? margin + toFrac(m[i + 1]) * span - mp : Infinity];
+    const R = Math.min(p.snapRadius, Math.min(...gaps) / 2);
+    const dx = px - mp;
+    if (R <= 0 || Math.abs(dx) >= R) return px;
+    const pulled = mp + (dx * Math.abs(dx)) / R;
+    return px + (pulled - px) * clamp(p.snapStrength, 0, 1) * Math.min(1, deform || 0);
+  };
+
   /* ---------------------------------------------------------- pointer */
 
   const localX = (e: PointerEvent) => e.clientX - (ref.current?.getBoundingClientRect().left ?? 0);
@@ -158,6 +204,12 @@ export function Slider({
     stretchL.set(s < 0 ? -s : 0);
     stretchR.set(s > 0 ? s : 0);
     const f = (c - margin) / span;
+    if (marksRef.current) {
+      rawFrac.current = f;
+      frac.set((magnet(c) - margin) / span);
+      emitValue(marksRef.current[nearestMark(f)]);
+      return;
+    }
     frac.set(f);
     emit(f);
   };
@@ -180,8 +232,13 @@ export function Slider({
       mode.current = "press";
       drag.current = { grab: 0, startX: x };
       const f = clamp((x - margin) / span, 0, 1);
-      emit(f);
-      frac.to(toFrac(lastEmitted.current), t(p.thumbSpring));
+      if (marksRef.current) {
+        emitValue(marksRef.current[nearestMark(f)]);
+        frac.to(toFrac(lastEmitted.current), t(p.snapSpring));
+      } else {
+        emit(f);
+        frac.to(toFrac(lastEmitted.current), t(p.thumbSpring));
+      }
     }
   };
 
@@ -204,9 +261,10 @@ export function Slider({
     setActive(false);
     stretchL.to(0, t(p.recover));
     stretchR.to(0, t(p.recover));
-    const v = wasDrag ? emit(frac.mv.get()) : lastEmitted.current;
+    const segmented = !!marksRef.current;
+    const v = !wasDrag ? lastEmitted.current : segmented ? emitValue(marksRef.current![nearestMark(rawFrac.current)]) : emit(frac.mv.get());
     // settle onto the stepped position (吸附与归位)
-    if (wasDrag) frac.to(toFrac(v), t(p.thumbSpring));
+    if (wasDrag) frac.to(toFrac(v), t(segmented ? p.snapSpring : p.thumbSpring));
     if (e.type === "pointercancel" || e.type === "lostpointercapture" || e.pointerType === "touch") {
       pointer.current = null;
       setHoverTrack(false);
@@ -231,7 +289,15 @@ export function Slider({
     if (next === null) return;
     e.preventDefault();
     const dir = Math.sign(next - cur);
-    const v = snapSliderValue(next, min, max, step);
+    const m = marksRef.current;
+    // Segmented: arrows move one mark, Shift/Page three, Home/End to the ends.
+    const v = !m ? snapSliderValue(next, min, max, step)
+      : e.key === "Home" ? m[0] : e.key === "End" ? m[m.length - 1]
+      : (() => {
+          const n = big ? 3 : 1;
+          const ahead = dir > 0 ? m.filter((x) => x > cur + 1e-9) : m.filter((x) => x < cur - 1e-9).reverse();
+          return ahead.length ? ahead[Math.min(n, ahead.length) - 1] : cur;
+        })();
     if (v === cur && dir !== 0) {
       // pressing past the extreme → short stretch pulse (边界阻力)
       const target = dir < 0 ? stretchL : stretchR;
@@ -240,7 +306,7 @@ export function Slider({
       return;
     }
     lastEmitted.current = v;
-    frac.to(toFrac(v), t(p.thumbSpring));
+    frac.to(toFrac(v), t(m ? p.snapSpring : p.thumbSpring));
     onChange(v);
     onChangeEnd?.(v);
   };
@@ -254,6 +320,7 @@ export function Slider({
       data-hover={hoverTrack || undefined}
       data-active={active || undefined}
       data-disabled={disabled || undefined}
+      data-segmented={marks ? true : undefined}
       style={{ height: HEIGHT }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -274,6 +341,7 @@ export function Slider({
         <g transform={`translate(0 ${(HEIGHT - 28) / 2})`}>
         <motion.path className="at-slider-track" d={d} />
         <motion.path className="at-slider-fill" d={fillD} />
+        {marks && W > 0 && marks.map((m) => <MarkDot key={m} cx={margin + toFrac(m) * span} at={toFrac(m)} frac={frac.mv} r={p.markSize / 2} />)}
         </g>
       </svg>
       <motion.div

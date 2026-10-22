@@ -42,3 +42,16 @@ node scripts/check-sizing.mjs
 2026-10-19 实测结果：上述六项命令全部通过；维护页与独立源码消费者分别完成同一套浏览器回归。官方 Skill 校验器对指令源目录和完整包均通过。已人工检查悬浮/侧栏/320px 截图，测试浏览器为本机 Chrome。
 
 本机完整 Skill 安装在 `E:/CodexHome/skills/attune-motion`，37 个文件与构建目录逐字节一致。归档文件为 `.backup/releases/attune-motion-v0.1.0.zip`，可把其中的 `attune-motion` 文件夹作为完整 Skill 安装到其他环境。
+
+## 0.1.2 · 跨机器 / 跨代理一致性
+
+- 包内新增 `references/visual-spec.md`（尺寸、字段→控件映射、禁止事项）、`assets/reference/*.png`（Toolbar、菜单、面板、悬停卡片、曲线容器的 1440×960@2x 基准图）和 `scripts/verify-example.mjs`（与维护仓库 `check:motion` 同一份回归；按系统查找 Chrome/Chromium/Edge，`puppeteer-core` 从运行目录的项目解析，截图目录 `ATTUNE_SHOT_DIR`）。
+- 修复 `install.mjs` 在 Node 22 / macOS 上的 EEXIST：先独占创建目标目录，再逐项复制目录内容。打包前清空输出目录，避免旧文件残留。`skill:check` 额外检查基准图、视觉规范、自检脚本存在且分发文件不含本机路径。
+- 实测：把打包后的 Skill 复制到仓库外的临时目录，新建只含公开 npm 依赖的 Vite 项目，用 `install.mjs` 安装源码与示例，`tsc` 通过，`verify-example.mjs` 全部通过；与基准图逐像素对比，面板、悬停卡片、曲线容器 0% 差异，Toolbar 约 1%（仅示例页背景文字不同）。仍只在本机 Chrome（macOS）上验证，未覆盖 Firefox/Safari/Windows 字体差异。
+
+## 0.2.0 · 界面方案二选一、设计组 Token
+
+- 接入前选择界面方案：A 使用 AttuneUI 组件库（默认，外观与回归一致）；B 自行绘制（`install.mjs --ui custom` 只安装零依赖的 `model.ts`，按 `references/custom-ui.md` 用宿主组件实现同样的行为、JSON 和 token 规则）。用户未指定时由代理询问。
+- 设计组 motion token 可作为预设参数加载：面板“加载 Token”（预置集 / 粘贴 / 文件），匹配的数值字段改为 token 下拉（可选“自定义”展开连续滑块自由调节；混合长/中/短 token 做成刻度滑块过密，已放弃），曲线预设换成 easing token，导出 JSON 带 `tokenSet` 与 `tokens`。格式与映射规则见 `references/integration.md#设计组-token`。
+- 面板滚动条在操作其他控件时不再响应悬停。
+

@@ -1,10 +1,32 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
-import puppeteer from 'puppeteer-core';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+
+// Shipped inside the skill as verify-example.mjs: resolve puppeteer-core next to this file first,
+// then from the project the command runs in (the skill folder itself has no node_modules).
+const loadPuppeteer = async () => {
+  try { return (await import('puppeteer-core')).default; } catch {
+    try { return (await import(pathToFileURL(createRequire(path.join(process.cwd(), 'noop.js')).resolve('puppeteer-core')).href)).default; }
+    catch { throw new Error('puppeteer-core not found. Run this from a project that has it installed (e.g. npm i -D puppeteer-core).'); }
+  }
+};
+const puppeteer = await loadPuppeteer();
 
 const origin = process.env.ATTUNE_URL ?? 'http://localhost:5188';
 const url = process.env.ATTUNE_MOTION_URL ?? `${origin}/motion.html`;
-const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
+// Portable: CHROME_PATH wins; otherwise try the usual Chrome/Chromium/Edge locations per OS.
+const chromeCandidates = {
+  win32: ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'],
+  darwin: ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'],
+  linux: ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/snap/bin/chromium'],
+}[process.platform] ?? [];
+const executablePath = process.env.CHROME_PATH ?? chromeCandidates.find(existsSync);
+if (!executablePath) throw new Error('No Chrome/Chromium found. Set CHROME_PATH to a Chrome, Chromium or Edge executable.');
+const shots = process.env.ATTUNE_SHOT_DIR ?? '.backup/motion-review';
+const browser = await puppeteer.launch({ executablePath, headless: true });
 const page = await browser.newPage();
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
@@ -23,7 +45,7 @@ const fits = async () => {
   assert(b.x >= -1 && b.y >= -1 && b.x + b.w <= v.width + 1 && b.y + b.h <= v.height + 1, `Panel outside viewport: ${JSON.stringify(b)}`);
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Horizontal overflow');
 };
-await mkdir('.backup/motion-review', { recursive: true });
+await mkdir(shots, { recursive: true });
 try {
   await browser.defaultBrowserContext().overridePermissions(new URL(url).origin, ['clipboard-read', 'clipboard-sanitized-write']);
   await page.setViewport({ width: 1440, height: 960 });
@@ -31,7 +53,7 @@ try {
   assert.equal(await page.$eval('.at-mw-shell', el => el.dataset.mode), 'minimized');
   const initial = await bounds(); assert(Math.abs(initial.x - (1440 - initial.w) / 2) < 1); assert(initial.w < 160, `Toolbar hugs its content: ${initial.w}`); assert.equal(initial.y, 960 - 52 - 12);
   const bodyStyle = await page.evaluate(() => ({ font: getComputedStyle(document.body).fontSize, color: getComputedStyle(document.body).color }));
-  await page.screenshot({ path: '.backup/motion-review/01-toolbar.png' });
+  await page.screenshot({ path: `${shots}/01-toolbar.png` });
 
   // Six actual pointer drags and independent default expansion placement.
   for (const [anchor, x, y] of [['top-left', 12, 12], ['top-center', 598, 12], ['top-right', 1184, 12], ['bottom-left', 12, 896], ['bottom-center', 598, 896], ['bottom-right', 1184, 896]]) {
@@ -46,7 +68,7 @@ try {
   await click('展开调参面板');
   assert.equal(await page.$$eval('.at-mw-scroll > .at-scroll-content > .at-group', els => els.length), 3);
   assert.match(await page.$eval('.at-mw-shell', el => getComputedStyle(el).backdropFilter), /blur/);
-  await page.screenshot({ path: '.backup/motion-review/02-floating.png' });
+  await page.screenshot({ path: `${shots}/02-floating.png` });
 
   // Change a real native slider and verify actual host WAAPI timing and isolation.
   const before = await counts();
@@ -83,7 +105,7 @@ try {
   await page.focus('.at-mw-resize'); await page.keyboard.press('ArrowUp'); await pause(); assert(Math.abs((await bounds()).h - (maxed.h - 20)) < 1, 'Keyboard resize');
   await resizeBy(-150); const resized = await bounds();
   await click('收起调参面板'); await click('展开调参面板'); assert(Math.abs((await bounds()).h - resized.h) < 1, 'Height remembered');
-  await page.screenshot({ path: '.backup/motion-review/03-resized.png' });
+  await page.screenshot({ path: `${shots}/03-resized.png` });
   await click('收起调参面板');
 
   // Replay is scoped to registered adapters; menu hover, direct click and keyboard all work.
@@ -109,12 +131,66 @@ try {
   assert(Math.abs((await bounds()).x - remembered.x) < 1, 'Position persisted across reload');
   assert(Math.abs((await bounds()).h - resized.h) < 1, 'Height persisted across reload');
 
+  // Scrollbar must not react while another control is being operated near it.
+  const scroll = '.at-mw-shell .at-scroll';
+  const firstSlider = await (await page.$('.at-mw-scroll .at-slider-thumb')).boundingBox();
+  const bar = await (await page.$('.at-mw-shell .at-scroll-bar')).boundingBox();
+  await page.mouse.move(firstSlider.x + 3, firstSlider.y + 3); await page.mouse.down();
+  await page.mouse.move(bar.x + bar.width / 2, firstSlider.y + 3, { steps: 10 }); await pause(250);
+  assert.equal(await page.$eval(scroll, el => el.dataset.active), undefined, 'Scrollbar ignores hover while a slider is dragged');
+  await page.mouse.up(); await pause();
+
+  // Design tokens: invalid JSON is reported; the library set segments sliders, snaps values,
+  // swaps curve presets, exports token names, persists, and can be removed.
+  await click('加载动效 Token');
+  await page.type('.at-mw-sheet textarea', '{"a": "hello"}');
+  await page.evaluate(() => [...document.querySelectorAll('.at-mw-sheet button')].find(b => b.textContent === '加载').click()); await pause(150);
+  assert.match(await page.$eval('.at-mw-sheet-error', el => el.textContent), /没有识别到动效 token/);
+  await page.evaluate(() => document.querySelector('.at-mw-sheet-library button').click()); await pause();
+  assert.equal(await page.$('.at-mw-sheet'), null, 'Sheet closes after loading');
+  assert.match(await page.$eval('[role="status"]', el => el.textContent), /个参数改为 token 选择/);
+  // Token-mapped number fields become a token dropdown (no slider); px fields stay sliders.
+  const tokenFields = await page.$$eval('.at-mw-scroll .at-token-field', els => els.length);
+  assert(tokenFields >= 6, `ms fields use token dropdowns: ${tokenFields}`);
+  assert.equal(await page.$$eval('.at-mw-scroll .at-token-field .at-slider', els => els.length), 0, 'No slider in token mode');
+  const durations = [0, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 1000, 2000];
+  const segValue = async () => (await snapshot()).animations.entrance.duration;
+  assert(durations.includes(await segValue()), 'Value moved onto a token');
+  assert.equal((await snapshot()).animations.entrance.delay, 0, '0 stays a valid choice');
+  const tokenTrigger = '.at-mw-scroll .at-group:first-child .at-token-field .at-select-trigger';
+  const pick = async text => {
+    await page.click(tokenTrigger); await pause(450);
+    assert(await page.$eval('.at-select-option[data-selected]', el => { const v = el.closest('.at-select-view').getBoundingClientRect(), r = el.getBoundingClientRect(); return r.top >= v.top - 1 && r.bottom <= v.bottom + 1; }), 'Selected option scrolled into view');
+    await page.evaluate(t => [...document.querySelectorAll('.at-select-option')].find(o => o.querySelector('.at-token-option-name')?.textContent === t).click(), text); await pause();
+  };
+  await pick('medium-1'); assert.equal(await segValue(), 400, 'Picking a token sets its value');
+  // Deselect: “自定义” reveals a free continuous slider; a token collapses it again.
+  await pick('自定义');
+  const free = '.at-mw-scroll .at-group:first-child .at-token-field [role="slider"]';
+  assert(await page.$(free), 'Custom mode shows a slider');
+  assert.equal(await page.$eval(free, el => el.closest('.at-slider').querySelectorAll('.at-slider-mark').length), 0, 'Free slider is continuous');
+  await page.focus(free); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight'); await pause();
+  assert.equal(await segValue(), 420, 'Free tuning between tokens');
+  assert.match(await page.$eval(tokenTrigger, el => el.textContent), /自定义\s*420/);
+  await click('复制完整 JSON');
+  const tokenExport = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
+  assert.equal(tokenExport.tokenSet, '设计组 Motion Token');
+  assert.equal(tokenExport.animations.entrance.tokens?.duration, undefined, 'Custom value is not exported as a token');
+  assert.match(tokenExport.animations.notice.tokens.duration, /^Duration\//);
+  await pick('short-3'); assert.equal(await segValue(), 200);
+  assert.equal(await page.$(free), null, 'Picking a token hides the free slider');
+  await page.reload({ waitUntil: 'networkidle0' }); await click('展开调参面板');
+  assert.equal(await page.$eval('.at-mw-tokenbar-name', el => el.textContent), '设计组 Motion Token', 'Token set persisted');
+  await click('移除 Token');
+  assert.equal(await page.$('.at-mw-scroll .at-token-field'), null, 'Removing tokens restores sliders');
+  await click('重置全部参数');
+
   // Collapse animates through intermediate sizes and can be reversed mid-way.
   await page.click('[aria-label="收起调参面板"]'); await pause(80);
   const during = await bounds(); assert(during.w > 146 && during.w < 360, `No intermediate collapse frame: ${during.w}`);
   await pause(); await click('展开调参面板');
   for (const width of [390, 320]) { await page.setViewport({ width, height: 844 }); await pause(); await fits(); }
-  await page.screenshot({ path: '.backup/motion-review/04-mobile.png' });
+  await page.screenshot({ path: `${shots}/04-mobile.png` });
   await click('收起调参面板'); await fits();
   await page.setViewport({ width: 1440, height: 960 }); await pause();
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]); await pause();
@@ -126,5 +202,5 @@ try {
   await page.$eval('.ml-bottom button', el => el.click()); await pause(); assert.equal(await page.$('.at-mw-root'), null);
   assert.deepEqual(await page.evaluate(() => ({ font: getComputedStyle(document.body).fontSize, color: getComputedStyle(document.body).color })), bodyStyle);
   assert.deepEqual(errors, []);
-  console.log(`PASS: six anchors, position + height memory, bottom-edge resize (min/viewport/keyboard), no host reflow, collapse interruption, 3 live adapters, numeric/slider updates, replay isolation, real clipboard + denial, 320/390px, reduced preferences, unmount.\nTested ${url}`);
+  console.log(`PASS: six anchors, position + height memory, scrollbar ignores drags, design tokens (errors, token dropdowns, pick, deselect → free slider, export, persistence, removal), bottom-edge resize (min/viewport/keyboard), no host reflow, collapse interruption, 3 live adapters, numeric/slider updates, replay isolation, real clipboard + denial, 320/390px, reduced preferences, unmount.\nTested ${url}`);
 } finally { await browser.close(); }

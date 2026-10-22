@@ -52,23 +52,30 @@ try {
   await page.click(`${card('select')} [aria-label="出现顺序"]`); await pause();
   // Hover the last row by coordinates: the popup may sit near the viewport bottom,
   // where Puppeteer's element hover scrolls the page and closes the menu.
-  const lastRow = await page.$$eval('.at-select-option', els => { const r = els[els.length - 1].getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  // Hover the row on the side away from the header: the last row when the list opens down, the
+  // first visible row when it flips up (header at the bottom).
+  const lastRow = await page.$eval('.at-select-pop', pop => {
+    const view = pop.querySelector('.at-select-view').getBoundingClientRect();
+    const rows = [...pop.querySelectorAll('.at-select-option')].filter(e => { const r = e.getBoundingClientRect(); return r.top >= view.top - 1 && r.bottom <= view.bottom + 1; });
+    const r = (pop.dataset.up !== undefined ? rows[0] : rows[rows.length - 1]).getBoundingClientRect();
+    return [r.x + r.width / 2, r.y + r.height / 2];
+  });
   await page.mouse.move(lastRow[0], lastRow[1]);
   // The highlight glides to the hovered row; wait for the spring to settle before measuring.
   await pause(1200);
   const spacing = await page.$eval('.at-select-pop', el => {
-    // Measure the highlight against the list container (the header row is a
-    // separate sibling), and against the side it sits on: the list flips above
-    // the trigger near the viewport edge, which puts the header below the rows.
-    const list = el.querySelector('.at-select-list').getBoundingClientRect();
+    // The highlight sits one ring (2.5px) inside the popup on the sides and on the side away from the
+    // header; corners are concentric (outer = pill radius + ring). The list flips above the trigger
+    // near the viewport edge, which puts the header below the rows.
+    const pop = el.getBoundingClientRect();
     const hl = el.querySelector('.at-select-hl');
     const h = hl.getBoundingClientRect();
-    const view = el.querySelector('.at-select-view').getBoundingClientRect();
-    const above = h.top < view.top + view.height / 2;
-    return { l: h.left - list.left, r: list.right - h.right, b: above ? h.top - list.top : list.bottom - h.bottom, outer: parseFloat(getComputedStyle(el).borderBottomLeftRadius), inner: parseFloat(getComputedStyle(hl).borderBottomLeftRadius) };
+    const up = el.dataset.up !== undefined;
+    return { l: h.left - pop.left, r: pop.right - h.right, b: up ? h.top - pop.top : pop.bottom - h.bottom, outer: parseFloat(getComputedStyle(el).borderBottomLeftRadius), inner: parseFloat(getComputedStyle(hl).borderBottomLeftRadius), shown: getComputedStyle(hl).opacity };
   });
-  assert(Math.abs(spacing.l - 4) < 0.2 && Math.abs(spacing.r - 4) < 0.2 && Math.abs(spacing.b - 4) < 0.2, `select list inset ${JSON.stringify(spacing)}`);
-  assert.equal(spacing.outer - spacing.inner, 4, 'Nested radii follow the 4px inset');
+  assert(Math.abs(spacing.l - 2.5) < 0.2 && Math.abs(spacing.r - 2.5) < 0.2 && Math.abs(spacing.b - 2.5) < 0.2, `select list inset ${JSON.stringify(spacing)}`);
+  assert.equal(spacing.outer - spacing.inner, 2.5, 'Nested radii follow the 2.5px ring');
+  assert.equal(spacing.shown, '1', 'Highlight shows once a row is hovered');
   await page.screenshot({ path: '.backup/foundation-review/select-spacing.png', fullPage: true });
   await page.keyboard.press('Escape'); await pause();
   const inset = await page.$eval(`${card('timeline')} .at-tl-track`, e => e.querySelector('.at-tl-bar').getBoundingClientRect().left - e.getBoundingClientRect().left);

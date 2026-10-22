@@ -1,5 +1,7 @@
 # 第一次接入的实际验证
 
+第 1–8、10、11 项两种界面方案都要检查；第 9 项与“自带浏览器自检”只适用于方案 A（AttuneUI）。
+
 用真实本地预览完成以下行为检查。记录浏览器、视口、命令及失败项，未执行的项目不能写成通过。
 
 1. 页面正常显示，宿主字号/颜色没有被面板改变。默认 Toolbar 底部居中；鼠标拖动到六个点，松开吸附。拖动手柄用方向键也能切换。
@@ -10,5 +12,19 @@
 6. 修改两组后复制：读取实际剪贴板并 JSON.parse，包含三组所有参数，修改值与页面相同。模拟剪贴板失败时显示手动复制内容，不能提示成功。
 7. 390/320px 宽视口不横向溢出，展开面板仍可滚动和收起，展开曲线编辑器后面板内也没有横向滚动。系统减少动效时工具与宿主动画都降级，减少透明度时面板实底。
 8. 类型检查和构建通过，浏览器无新错误。卸载工具后无浮层残留，用户页面仍可操作。
+
+9. 外观对照 [visual-spec.md](visual-spec.md) 与 `assets/reference/*.png`：Toolbar 六点竖排手柄与 12px 内距、header 单行、分组编号在前且无左缩进、悬停卡片、参数名后的修改圆点、曲线编辑器容器（输入框 + 圆盘 Select，同宽居中，超范围自动缩小，无预设显示“自定义”）、footer“重置全部参数”。
+10. Token：一键加载与粘贴/文件加载都可用，错误 JSON 显示原因不崩溃；匹配的数值字段变为 token 下拉、无滑块，打开时当前项可见；选 token 改变数值；选“自定义”展开连续滑块并可自由调节，再选 token 收起；当前值取最近 token 且提示数量；曲线预设变为 easing token；复制的 JSON 含 `tokenSet` 和 `tokens`（自定义的参数不带 token 名）；刷新后 token 集仍在；移除后恢复滑块。
+11. 拖动面板里的滑块经过右侧滚动条区域时，滚动条不变粗、不出现外轨道。
+
+## 自带浏览器自检
+
+`scripts/verify-example.mjs` 是维护仓库的同一套浏览器回归，针对内置示例：先用 `scripts/install.mjs --target <dir>/attune --example <dir>/example` 安装，在项目的开发服务器里打开示例页面（示例入口为 `example/main.tsx`，需挂到一个含 `<div id="root">` 的 HTML 上），然后运行：
+
+```sh
+ATTUNE_MOTION_URL=<示例页面地址> node <skill>/scripts/verify-example.mjs
+```
+
+需要项目中可解析 `puppeteer-core`（如 `npm i -D puppeteer-core`），并能找到 Chrome / Chromium / Edge。脚本会按系统查找常见安装位置，找不到时设置 `CHROME_PATH`。截图输出到 `ATTUNE_SHOT_DIR`（默认 `.backup/motion-review`）。这一步验证安装的源码与维护版行为一致；用户自己页面的动效仍需要按上面 1–9 项检查。没有 Chrome 或不能安装依赖时，说明原因并手动完成检查，不要写成已通过。
 
 在 AttuneUI 维护仓库，复现命令为 `npm run build`、`npm run check:motion`（运行中的 localhost:5188）、`npm run skill:check`；跨机器设置 `CHROME_PATH`。截图在 `.backup/motion-review/`。外部消费者按自己的测试工具执行同等行为，不能照搬维护仓库脚本路径。

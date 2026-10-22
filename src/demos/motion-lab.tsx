@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { ArrowUpRight, Layers, MousePointer2, Sparkles } from "lucide-react";
 import { MotionWorkbench } from "../workbench/MotionWorkbench";
 import { createMotionConfig, type MotionDefinition, type MotionParams } from "../workbench/model";
+import { designTeamTokens } from "./motion-tokens";
 import "../styles/attune.css";
 import "./motion-lab.css";
 
@@ -63,7 +64,7 @@ function MotionLab() {
   useEffect(() => { const active = runs.current; return () => { active.forEach(a => a.cancel()); active.clear(); }; }, []);
 
   const content = <main className="ml-page">
-    <nav className="ml-nav"><a href="/showcase.html" className="ml-brand"><span className="ml-mark">a</span>attune<span className="ml-nav-tag">MOTION LAB</span></a><span>Skill preview · 0.1.1</span></nav>
+    <nav className="ml-nav"><a href="/showcase.html" className="ml-brand"><span className="ml-mark">a</span>attune<span className="ml-nav-tag">MOTION LAB</span></a><span>Skill preview · 0.2.0</span></nav>
     <section className="ml-intro"><p className="ml-eyebrow">DESIGNED TO FEEL RIGHT</p><h1>让动效，<br /><em>恰到好处。</em></h1><p className="ml-lead">不再说“快一点、再慢一点”。<br />把感觉变成数值，在真实页面上找到合适的节奏。</p><div className="ml-guide"><span>01 展开底部面板</span><span>02 调整并重播</span><span>03 复制参数</span></div></section>
     <section className="ml-experiments" aria-label="三组动效预览">
       <article className="ml-experiment"><header><span>01 / ENTRANCE</span><Layers size={17} /></header><div className="ml-stage"><div ref={hero} className="ml-hero" data-animation="entrance"><div className="ml-orbit"><i /><i /><i /></div><strong>留一点呼吸感。</strong><span>A little room to move.</span></div></div><footer><strong>卡片入场</strong><span data-count="entrance">重播 {counts.entrance} 次</span></footer></article>
@@ -74,7 +75,7 @@ function MotionLab() {
     <output className="ml-config" aria-label="当前配置快照">{JSON.stringify(config)}</output>
   </main>;
   // Keep the same layout boundary when disabled; a production integration gates the tool at its entry.
-  return mounted ? <MotionWorkbench definitions={definitions} config={config} onChange={setConfig} theme="light">{content}</MotionWorkbench> : content;
+  return mounted ? <MotionWorkbench definitions={definitions} config={config} onChange={setConfig} theme="light" tokenLibrary={[designTeamTokens]}>{content}</MotionWorkbench> : content;
 }
 
 createRoot(document.getElementById("root")!).render(<MotionLab />);

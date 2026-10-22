@@ -5,7 +5,7 @@ import { useFeel } from "../core/feel";
 import { clamp, lerp, rubber } from "../core/geometry";
 import { useAnimated } from "../core/hooks";
 import type { ResolvedFeel } from "../core/schema";
-import { IconCheck, MotionChevronDown } from "../core/icons";
+import { MotionChevronDown } from "../core/icons";
 import { controlHeight, type ControlSize } from "../tokens/tokens";
 import { useAttuneScope } from "../core/surface";
 import { RadialPicker, type RadialFeel } from "./RadialPicker";
@@ -21,6 +21,8 @@ export type SelectProps<V extends string> = {
   listWidth?: number;
   disabled?: boolean;
   "aria-label"?: string;
+  /** trigger text when `value` matches no option */
+  placeholder?: ReactNode;
   /**
    * dropdown (default): the trigger grows into a list.
    * radial: options divide a disc that pops out of the trigger — for a small,
@@ -36,7 +38,12 @@ export type SelectProps<V extends string> = {
   feel?: Partial<ResolvedFeel<"select">>;
 };
 
-const PAD = 4;
+/**
+ * Ring between the popup edge and its content. Opening, the trigger's outline grows outward by
+ * this much and turns into the popup body (same sunken colour); the trigger area becomes the white
+ * header pill. Rows and the highlight sit the same distance inside, concentric with the corners.
+ */
+const RING = 2.5; // = --at-select-gap in attune.css (the library's standard inner/outer inset)
 
 const Chevron = ({ style }: { style?: object }) => (
   <MotionChevronDown className="at-select-chevron" size={12} strokeWidth={1.75} style={style} aria-hidden="true" />
@@ -48,7 +55,7 @@ const Chevron = ({ style }: { style?: object }) => (
  */
 export function Select<V extends string>(props: SelectProps<V>) {
   if (props.variant === "radial") {
-    const { options, value, onChange, width, disabled, size = "md", renderHub, radialFeel, ...aria } = props;
+    const { options, value, onChange, width, disabled, size = "md", renderHub, radialFeel, placeholder, ...aria } = props;
     return (
       <RadialPicker
         aria-label={aria["aria-label"]}
@@ -59,6 +66,7 @@ export function Select<V extends string>(props: SelectProps<V>) {
         disabled={disabled}
         options={options}
         renderHub={renderHub}
+        placeholder={placeholder}
         feel={radialFeel}
       />
     );
@@ -71,7 +79,7 @@ export function Select<V extends string>(props: SelectProps<V>) {
  * The list is the trigger itself growing: same surface, same header row.
  * Scrolling past the last row stretches the menu downward (触底拉伸) and springs back.
  */
-function DropdownSelect<V extends string>({ options, value, onChange, width, listWidth, disabled, size = "md", maxVisible = 6, feel: local, ...aria }: SelectProps<V>) {
+function DropdownSelect<V extends string>({ options, value, onChange, width, listWidth, disabled, size = "md", maxVisible = 6, placeholder, feel: local, ...aria }: SelectProps<V>) {
   const scope = useAttuneScope();
   const ROW = controlHeight(size);
   const { p, t, deform } = useFeel("select", local);
@@ -81,6 +89,8 @@ function DropdownSelect<V extends string>({ options, value, onChange, width, lis
   const [mounted, setMounted] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [active, setActive] = useState(0);
+  /** The highlight shows only once a row is hovered or the keyboard moves — not on open. */
+  const [hlOn, setHlOn] = useState(false);
   const o = useAnimated(0);
   const stretch = useAnimated(0);
   const viewRef = useRef<HTMLDivElement>(null);
@@ -96,6 +106,7 @@ function DropdownSelect<V extends string>({ options, value, onChange, width, lis
     if (!r) return;
     setRect(r);
     setActive(selIdx);
+    setHlOn(false);
     hlTop.set(selIdx * ROW);
     hlBot.set(selIdx * ROW + ROW);
     setMounted(true);
@@ -117,6 +128,15 @@ function DropdownSelect<V extends string>({ options, value, onChange, width, lis
     // reduced motion: instant transitions never fire animationComplete
     if (!open && mounted && o.mv.get() === 0) setMounted(false);
   });
+
+  // On open, bring the selected row into view (centred when the list scrolls); the active-row
+  // effect below only reacts to changes, so reopening on the same selection would stay off-screen.
+  useLayoutEffect(() => {
+    const v = viewRef.current;
+    if (!mounted || !v) return;
+    v.scrollTop = Math.max(0, Math.min(v.scrollHeight - v.clientHeight, selIdx * ROW - (v.clientHeight - ROW) / 2));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted]);
 
   // highlight follows the active row: leading edge fast, trailing edge stretched
   const prevActive = useRef(active);
@@ -236,9 +256,11 @@ function DropdownSelect<V extends string>({ options, value, onChange, width, lis
       doClose();
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
+      setHlOn(true);
       setActive((a) => Math.min(options.length - 1, a + 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
+      setHlOn(true);
       setActive((a) => Math.max(0, a - 1));
     } else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -250,21 +272,28 @@ function DropdownSelect<V extends string>({ options, value, onChange, width, lis
   const visible = Math.max(1, Math.min(options.length, maxVisible));
   const viewH = visible * ROW;
   const maxScroll = Math.max(0, options.length - visible) * ROW;
-  const listH = viewH + PAD * 2;
+  const listH = viewH + RING; // RING gap between the header pill and the first row
   const tw = rect?.width ?? 0;
   const th = rect?.height ?? ROW;
   const fullW = Math.max(tw, listWidth ?? 0);
-  const fullH = th + listH;
+  const fullH = th + listH + RING * 2;
   const up = rect ? rect.top + fullH > window.innerHeight - 8 && rect.top > fullH : false;
-  const w = useTransform(o.mv, (v) => lerp(tw, fullW, clamp(v, 0, 1.2)));
-  const hgt = useTransform([o.mv, stretch.mv] as const, ([v, st]: number[]) => Math.max(th, lerp(th, fullH, v)) + st);
-  const top = useTransform(hgt, (hh) => (rect ? (up ? rect.bottom - hh : rect.top) : 0));
+  // At o = 0 the popup is exactly the trigger; the ring grows with the opening.
+  const openAmt = useTransform(o.mv, (v) => clamp(v, 0, 1));
+  const ring = useTransform(openAmt, (v) => RING * v);
+  const w = useTransform([o.mv, ring] as const, ([v, r]: number[]) => lerp(tw, fullW, clamp(v, 0, 1.2)) + r * 2);
+  const hgt = useTransform([o.mv, stretch.mv, ring] as const, ([v, st, r]: number[]) => Math.max(th, lerp(th, fullH - RING * 2, v)) + r * 2 + st);
+  const left = useTransform(ring, (r) => (rect ? rect.left - r : 0));
+  const top = useTransform([hgt, ring] as const, ([hh, r]: number[]) => (rect ? (up ? rect.bottom + r - hh : rect.top - r) : 0));
+  const ringVar = useTransform(ring, (r) => `${r}px`);
+  const openVar = useTransform(openAmt, (v) => `${v}`);
   const listOpacity = useTransform(o.mv, (v) => clamp((v - 0.35) / 0.45, 0, 1));
   const chevronRotate = useTransform(o.mv, (v) => clamp(v, 0, 1) * 180);
   // Rows spread apart while stretched: the deeper in the viewport, the more it moves.
   const depthOf = (i: number) => clamp(((i + 1) * ROW - maxScroll) / viewH, 0, 1) * 0.6;
   // `y` stays a motion value so Motion keeps driving the transform.
   const hlY = useTransform([hlTop.mv, stretch.mv] as const, ([t, st]: number[]) => t + st * depthOf(active));
+  const currentY = useTransform(stretch.mv, (st) => selIdx * ROW + st * depthOf(selIdx));
   const hlH = useTransform([hlTop.mv, hlBot.mv] as const, ([a, b]: number[]) => Math.max(0, b - a));
   // The viewport and the content grow together, so the scroll position holds
   // while rows spread out: row k moves by stretch × its depth in the viewport.
@@ -273,7 +302,7 @@ function DropdownSelect<V extends string>({ options, value, onChange, width, lis
 
   const header = (
     <>
-      <span className="at-select-value">{current?.label}</span>
+      <span className="at-select-value">{current?.label ?? placeholder}</span>
       <Chevron />
     </>
   );
@@ -309,17 +338,23 @@ function DropdownSelect<V extends string>({ options, value, onChange, width, lis
             data-control-size={size}
             data-up={up || undefined}
             data-at-interactive
-            style={{ ...scope.style, left: rect.left, top, width: w, height: hgt, ["--at-select-stretch" as string]: stretchVar }}
+            style={{ ...scope.style, left, top, width: w, height: hgt, ["--at-select-stretch" as string]: stretchVar, ["--at-select-ring" as string]: ringVar, ["--at-select-open" as string]: openVar }}
           >
             <button type="button" className="at-select-header" tabIndex={-1} onClick={doClose} style={{ height: th }}>
-              <span className="at-select-value">{current?.label}</span>
+              <span className="at-select-value">{current?.label ?? placeholder}</span>
               <Chevron style={{ rotate: chevronRotate }} />
             </button>
-            <motion.div className="at-select-list" role="listbox" id={listId} style={{ opacity: listOpacity, padding: PAD }}>
+            <motion.div className="at-select-list" role="listbox" id={listId} style={{ opacity: listOpacity }}>
               <motion.div ref={viewRef} className="at-select-view" style={{ height: viewHeight }}>
               <motion.div className="at-select-rows" style={{ paddingBottom: stretch.mv }}>
+                {/* Light pill marking the current value; the graphite hover highlight glides over it. */}
+                {options[selIdx]?.value === value && (
+                  <motion.div className="at-select-current" aria-hidden
+                    style={{ y: currentY, height: ROW }} />
+                )}
                 <motion.div
                   className="at-select-hl"
+                  data-on={hlOn || undefined}
                   style={{ y: hlY, height: hlH }}
                   aria-hidden
                 />
@@ -331,16 +366,15 @@ function DropdownSelect<V extends string>({ options, value, onChange, width, lis
                     aria-selected={i === selIdx}
                     className="at-select-option"
                     data-selected={i === selIdx || undefined}
-                    data-active={i === active || undefined}
+                    data-active={(hlOn && i === active) || undefined}
                     style={{ height: ROW }}
-                    onPointerMove={() => i !== active && setActive(i)}
+                    onPointerMove={() => {
+                      // First hover places the highlight on this row directly (no slide from the selection).
+                      if (!hlOn) { hlTop.set(i * ROW); hlBot.set(i * ROW + ROW); setHlOn(true); }
+                      if (i !== active) setActive(i);
+                    }}
                     onClick={() => choose(i)}
                   >
-                    <span className="at-select-check" aria-hidden>
-                      {i === selIdx && (
-                        <IconCheck size={12} />
-                      )}
-                    </span>
                     <span className="at-select-option-label">{opt.label}</span>
                     {opt.hint && <span className="at-select-option-hint">{opt.hint}</span>}
                   </div>

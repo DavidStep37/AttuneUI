@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { AnimatePresence, motion, useAnimationFrame, useMotionValue, useTransform, type MotionValue } from "motion/react";
 import { useFeel } from "../core/feel";
 import { bezierEasing, clamp, rubber } from "../core/geometry";
@@ -36,11 +36,19 @@ export function CurveGlyph({ curve, size = 22, strokeWidth = 1.6 }: { curve: Bez
 }
 
 const same = (a: Bezier, b: Bezier) => a.every((v, i) => Math.abs(v - b[i]) < 1e-4);
-export const presetOf = (c: Bezier) => bezierPresets.find((p) => same(p.curve, c))?.value ?? "custom";
+export type BezierPreset = { value: string; label: string; short: string; curve: Bezier };
+export const presetOf = (c: Bezier, list: BezierPreset[] = bezierPresets) => list.find((p) => same(p.curve, c))?.value ?? "custom";
 export const formatBezier = (c: Bezier) => c.map((v) => +v.toFixed(2)).join(", ");
 
 const Y_TOP = 1.3;
 const Y_BOTTOM = -0.3;
+/** Room kept between an overshooting control point and the graph edge (in curve units). */
+const FIT_MARGIN = 0.08;
+/** Visible y-range that contains both control points; never smaller than the default range. */
+const fitRange = (c: Bezier) => ({
+  top: Math.max(Y_TOP, Math.max(c[1], c[3]) + FIT_MARGIN),
+  bottom: Math.min(Y_BOTTOM, Math.min(c[1], c[3]) - FIT_MARGIN),
+});
 
 export type BezierEditorProps = {
   value: Bezier;
@@ -50,6 +58,10 @@ export type BezierEditorProps = {
   showPresets?: boolean;
   /** the moving dot on the curve that previews the easing */
   showPreview?: boolean;
+  /** Wrap graph, value field and preset picker in one sunken well; controls match the plot width. */
+  framed?: boolean;
+  /** Preset list; defaults to the built-in curves. Pass design-token easings here. */
+  presets?: BezierPreset[];
   /** how presets are picked: the radial disc (fixed small set) or a dropdown (default) */
   presetPicker?: "radial" | "select";
   feel?: Partial<ResolvedFeel<"bezier">>;
@@ -58,7 +70,7 @@ export type BezierEditorProps = {
 /**
  * Bezier Editor — 控制点牵拉一根有弹性的线 (Handoff §5.5)
  */
-export function BezierEditor({ value, onChange, size = 200, showInputs = true, showPresets = true, showPreview = true, presetPicker = "select", feel: local }: BezierEditorProps) {
+export function BezierEditor({ value, onChange, size = 200, showInputs = true, showPresets = true, showPreview = true, framed = false, presets = bezierPresets, presetPicker = "select", feel: local }: BezierEditorProps) {
   const { p, t, deform, reduced } = useFeel("bezier", local);
   const plotClipId = useId();
   const pad = 10;
@@ -75,6 +87,41 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef<0 | 1 | 2>(0);
   const last = useRef<Bezier>(value);
+
+  // Auto-fit: when a preset or typed value overshoots the default range (e.g. back-out, y = 1.56),
+  // the plot zooms out about its centre inside the same box instead of drawing past the frame.
+  // Strokes and radii are compensated, so only the geometry shrinks. Frozen while dragging.
+  const zoom = useAnimated(1);
+  const zoomY = useAnimated(0);
+  const view = useRef(fitRange(value));
+  const cx = pad + S / 2;
+  const fitView = (c: Bezier, instant = false) => {
+    const r = fitRange(c);
+    view.current = r;
+    const k = (Y_TOP - Y_BOTTOM) / (r.top - r.bottom);
+    const ty = pad - k * (pad + (Y_TOP - r.top) * S);
+    if (instant) { zoom.set(k); zoomY.set(ty); return; }
+    zoom.to(k, t(p.presetSpring)); zoomY.to(ty, t(p.presetSpring));
+  };
+  const firstFit = useRef(true);
+  useEffect(() => {
+    if (dragging.current) return;
+    fitView(value, firstFit.current);
+    firstFit.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value[1], value[3], S]);
+  const viewTransform = useTransform([zoom.mv, zoomY.mv] as const, ([k, ty]: number[]) => `translate(${cx * (1 - k)} ${ty}) scale(${k})`);
+  // An SVG transform *attribute* (Motion would turn a `transform` prop into a CSS transform with fill-box origin).
+  const viewG = useRef<SVGGElement>(null);
+  useLayoutEffect(() => {
+    const apply = (tr: string) => viewG.current?.setAttribute("transform", tr);
+    apply(viewTransform.get());
+    return viewTransform.on("change", apply);
+  }, [viewTransform]);
+  /** Divide on-screen sizes (radii) by the zoom so handles keep their size. */
+  const inv = useTransform(zoom.mv, (k) => 1 / Math.max(0.05, k));
+  const endR = useTransform(inv, (i) => 2 * i);
+  const hitR = useTransform(inv, (i) => 12 * i);
 
   // external change (preset / inputs) → visual morph, interruptible
   useEffect(() => {
@@ -99,8 +146,8 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
   const c1y = useTransform(v[1].mv, sy);
   const c2x = useTransform(v[2].mv, sx);
   const c2y = useTransform(v[3].mv, sy);
-  const r1 = useTransform(hov1.mv, (h) => 5 * (1 + (p.pointHoverScale - 1) * h * Math.min(1, deform || 0.0001)));
-  const r2 = useTransform(hov2.mv, (h) => 5 * (1 + (p.pointHoverScale - 1) * h * Math.min(1, deform || 0.0001)));
+  const r1 = useTransform([hov1.mv, inv] as const, ([h, i]: number[]) => i * 5 * (1 + (p.pointHoverScale - 1) * h * Math.min(1, deform || 0.0001)));
+  const r2 = useTransform([hov2.mv, inv] as const, ([h, i]: number[]) => i * 5 * (1 + (p.pointHoverScale - 1) * h * Math.min(1, deform || 0.0001)));
 
   const emit = (i: 1 | 2, x: number, y: number) => {
     const next = [...last.current] as Bezier;
@@ -114,7 +161,10 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
 
   const toLocal = (e: PointerEvent) => {
     const r = svgRef.current!.getBoundingClientRect();
-    return { x: (e.clientX - r.left - pad) / S, y: Y_TOP - (e.clientY - r.top - pad) / S };
+    const k = zoom.mv.get();
+    const ux = (e.clientX - r.left - cx * (1 - k)) / k;
+    const uy = (e.clientY - r.top - zoomY.mv.get()) / k;
+    return { x: (ux - pad) / S, y: Y_TOP - (uy - pad) / S };
   };
 
   const down = (i: 1 | 2) => (e: PointerEvent<SVGCircleElement>) => {
@@ -131,7 +181,7 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
     const { x, y } = toLocal(e);
     const cx = clamp(x, 0, 1);
     const vx = cx + rubber(x - cx, p.edgeResistance, 0.06) * deform;
-    const vy = clamp(y, Y_BOTTOM + 0.02, Y_TOP - 0.02);
+    const vy = clamp(y, view.current.bottom + 0.02, view.current.top - 0.02);
     v[(i - 1) * 2].set(vx);
     v[(i - 1) * 2 + 1].set(vy);
     emit(i, cx, vy);
@@ -143,6 +193,7 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
     // settle the visual overshoot back to the real value
     v[(i - 1) * 2].to(last.current[(i - 1) * 2], t(p.recover));
     v[(i - 1) * 2 + 1].to(last.current[(i - 1) * 2 + 1], t(p.recover));
+    fitView(last.current);
   };
   const key = (i: 1 | 2) => (e: KeyboardEvent) => {
     const k = e.shiftKey ? 0.1 : 0.01;
@@ -164,20 +215,24 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
   const grid = [0.25, 0.5, 0.75];
   // The curve's fixed endpoints sit on the bottom-left and top-right corners: keep those
   // square so the frame's corner is exactly the endpoint; round only the two free corners.
-  const R = 8;
   const [L, T, Rt, B] = [sx(0), sy(1), sx(1), sy(0)];
-  const plotPath = `M${L} ${B} V${T + R} Q${L} ${T} ${L + R} ${T} H${Rt} V${B - R} Q${Rt} ${B} ${Rt - R} ${B} Z`;
+  // Corner radius stays 8px on screen at any zoom.
+  const plotPath = useTransform(inv, (i) => {
+    const R = 8 * i;
+    return `M${L} ${B} V${T + R} Q${L} ${T} ${L + R} ${T} H${Rt} V${B - R} Q${Rt} ${B} ${Rt - R} ${B} Z`;
+  });
 
   return (
-    <div className="at-bezier" data-at-interactive>
+    <div className="at-bezier" data-at-interactive data-framed={framed || undefined} style={framed ? { ["--at-bezier-plot" as string]: `${S}px` } : undefined}>
       <div className="at-bezier-graph">
         <svg ref={svgRef} width={S + pad * 2} height={H + pad * 2} className="at-bezier-svg">
           <defs>
             <clipPath id={plotClipId}>
-              <path d={plotPath} />
+              <motion.path d={plotPath} />
             </clipPath>
           </defs>
-          <path className="at-bezier-plot" d={plotPath} />
+          <g ref={viewG}>
+          <motion.path className="at-bezier-plot" d={plotPath} />
           <g clipPath={`url(#${plotClipId})`}>
             <BezierSides values={v.map(a => a.mv)} dragging={dragging} size={S} x={sx(0)} y={sy(1)} reduced={reduced || !deform} spring={p.sideSpring} />
             {grid.map((g) => (
@@ -188,20 +243,20 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
             ))}
             <line className="at-bezier-diag" x1={sx(0)} y1={sy(0)} x2={sx(1)} y2={sy(1)} />
           </g>
-          <path className="at-bezier-border" d={plotPath} />
+          <motion.path className="at-bezier-border" d={plotPath} />
           <motion.line className="at-bezier-arm" x1={sx(0)} y1={sy(0)} x2={c1x} y2={c1y} style={{ strokeWidth: w1 }} />
           <motion.line className="at-bezier-arm" x1={sx(1)} y1={sy(1)} x2={c2x} y2={c2y} style={{ strokeWidth: w2 }} />
           <motion.path className="at-bezier-curve" d={curve} />
-          {showPreview && <CurveDot value={value} sx={sx} sy={sy} />}
-          <circle className="at-bezier-end" cx={sx(0)} cy={sy(0)} r={2} />
-          <circle className="at-bezier-end" cx={sx(1)} cy={sy(1)} r={2} />
+          {showPreview && <CurveDot value={value} sx={sx} sy={sy} r={endR} />}
+          <motion.circle className="at-bezier-end" cx={sx(0)} cy={sy(0)} r={endR} />
+          <motion.circle className="at-bezier-end" cx={sx(1)} cy={sy(1)} r={endR} />
           {([1, 2] as const).map((i) => (
             <g key={i}>
               <motion.circle
                 className="at-bezier-hit"
                 cx={i === 1 ? c1x : c2x}
                 cy={i === 1 ? c1y : c2y}
-                r={12}
+                r={hitR}
                 tabIndex={0}
                 role="slider"
                 aria-label={`控制点 ${i}：${last.current[(i - 1) * 2]}, ${last.current[(i - 1) * 2 + 1]}`}
@@ -220,6 +275,7 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
               <motion.circle className="at-bezier-point" cx={i === 1 ? c1x : c2x} cy={i === 1 ? c1y : c2y} r={i === 1 ? r1 : r2} />
             </g>
           ))}
+          </g>
         </svg>
       </div>
       {(showInputs || showPresets) && (
@@ -229,18 +285,19 @@ export function BezierEditor({ value, onChange, size = 200, showInputs = true, s
             <Select
               aria-label="缓动预设"
               width="100%"
+              placeholder="自定义"
               variant={presetPicker === "radial" ? "radial" : "dropdown"}
-              value={presetOf(value)}
+              value={presetOf(value, presets)}
               options={[
-                ...bezierPresets.map((b) => ({ value: b.value, label: presetPicker === "radial" ? b.short : b.label, icon: <CurveGlyph curve={b.curve} /> })),
-                ...(presetOf(value) === "custom" && presetPicker !== "radial" ? [{ value: "custom", label: "自定义" }] : []),
+                ...presets.map((b) => ({ value: b.value, label: presetPicker === "radial" ? b.short : b.label, icon: <CurveGlyph curve={b.curve} /> })),
+                ...(presetOf(value, presets) === "custom" && presetPicker !== "radial" ? [{ value: "custom", label: "自定义" }] : []),
               ]}
               renderHub={(o) => {
-                const pr = bezierPresets.find((b) => b.value === o?.value);
+                const pr = presets.find((b) => b.value === o?.value);
                 return pr ? <span className="at-radial-hub-preview"><CurveGlyph curve={pr.curve} size={34} strokeWidth={1.8} /><span>{pr.short}</span></span> : <span className="at-radial-hub-label">自定义</span>;
               }}
               onChange={(k) => {
-                const pr = bezierPresets.find((b) => b.value === k);
+                const pr = presets.find((b) => b.value === k);
                 if (pr) onChange(pr.curve);
               }}
             />
@@ -267,11 +324,11 @@ function useLoopProgress(value: Bezier) {
   return { time, prog };
 }
 
-function CurveDot({ value, sx, sy }: { value: Bezier; sx: (x: number) => number; sy: (y: number) => number }) {
+function CurveDot({ value, sx, sy, r }: { value: Bezier; sx: (x: number) => number; sy: (y: number) => number; r: MotionValue<number> }) {
   const { time, prog } = useLoopProgress(value);
   const cx = useTransform(time, sx);
   const cy = useTransform(prog, sy);
-  return <motion.circle className="at-bezier-dot" cx={cx} cy={cy} r={2} />;
+  return <motion.circle className="at-bezier-dot" cx={cx} cy={cy} r={r} />;
 }
 
 /** Range the text field accepts; matches what dragging can produce. */
