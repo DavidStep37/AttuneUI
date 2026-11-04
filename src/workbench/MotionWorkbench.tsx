@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "motion/react";
 import { Copy, GripVertical, Maximize2, Minimize2, Play, RotateCcw, SwatchBook, X } from "lucide-react";
@@ -110,9 +110,9 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
   };
   // Defaults come from the registered fields, so "reset all" restores every group's source values.
   // With tokens loaded, the baseline is those defaults snapped onto the nearest tokens.
-  const defaults = createMotionConfig(config.projectId, definitions);
-  const baseline = tokenSet ? snapConfigToTokens(defaults, definitions, tokenSet).config : defaults;
-  const pristine = JSON.stringify(baseline.animations) === JSON.stringify(config.animations);
+  const defaults = useMemo(() => createMotionConfig(config.projectId, definitions), [config.projectId, definitions]);
+  const baseline = useMemo(() => tokenSet ? snapConfigToTokens(defaults, definitions, tokenSet).config : defaults, [defaults, definitions, tokenSet]);
+  const pristine = useMemo(() => JSON.stringify(baseline.animations) === JSON.stringify(config.animations), [baseline, config.animations]);
   const resetAll = () => { onChange(baseline); setFreeFields({}); setStatus("已重置全部参数"); };
 
   /* Design tokens: loaded sets turn matching sliders into segmented ones and easings into curve presets. */
@@ -133,16 +133,16 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
     try { localStorage.removeItem(tokenKey); } catch { /* ignore */ }
     setStatus("已移除 Token，参数恢复滑块调节");
   };
-  const update = (id: string, key: string, value: MotionParam) => onChange({ ...config, animations: {
+  const update = useCallback((id: string, key: string, value: MotionParam) => onChange({ ...config, animations: {
     ...config.animations, [id]: { ...config.animations[id], [key]: value },
-  } });
-  const replay = async (id?: string) => {
+  } }), [config, onChange]);
+  const replay = useCallback(async (id?: string) => {
     setMenu(false);
     const selected = definitions.filter(d => !id || d.id === id);
     const results = await Promise.allSettled(selected.map(d => Promise.resolve().then(() => d.replay(config.animations[d.id]))));
     const failed = results.flatMap((result, i) => result.status === "rejected" ? [selected[i].label] : []);
     if (failed.length) setStatus(`重播失败：${failed.join("、")}`);
-  };
+  }, [config, definitions]);
   const copy = async () => {
     const json = serializeMotionConfig(config, definitions, tokenSet);
     try { await navigator.clipboard.writeText(json); setFallback(null); setStatus("完整 JSON 已复制"); }
@@ -225,6 +225,39 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
     onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onLostPointerCapture={endDrag} onKeyDown={keyboardMove}><GripVertical size={16} /></button>;
   const copyButton = <Button size="md" iconOnly icon={<Copy size={15} />} aria-label="复制完整 JSON" title="复制完整 JSON" onClick={copy} />;
 
+  const groups = useMemo(() => minimized ? null : definitions.map((d, index) => <PanelGroup key={d.id} title={d.label} badge={String(index + 1).padStart(2, "0")}
+    actions={<Button size="sm" iconOnly icon={<Play size={12} />} aria-label={`重播${d.label}`} onClick={() => replay(d.id)} />}>
+    {d.description && <p className="at-mw-note">{d.description}</p>}
+    {d.fields.map(f => {
+      const value = config.animations[d.id][f.key];
+      const label = `${d.label} · ${f.label}`;
+      const base = baseline.animations[d.id][f.key];
+      if (f.type === "number") {
+        // With tokens, a slider over a mixed scale (short/medium/long) is too dense to use:
+        // pick a token from a dropdown, or choose “自定义” to get a free slider back.
+        const options = f.control === "number" ? [] : tokensForField(f, tokenSet);
+        const id = `${d.id}.${f.key}`;
+        if (options.length >= 2) return <TokenField key={f.key} label={f.label} hint={f.hint} value={value as number} min={f.min} max={f.max} step={f.step} unit={f.unit}
+          tokens={options.map(t => ({ value: t.value as number, label: t.label }))}
+          custom={!!freeFields[id]} onCustomChange={c => setFreeFields(m => ({ ...m, [id]: c }))}
+          onChange={v => update(d.id, f.key, v)} modified={value !== base}
+          onReset={() => { update(d.id, f.key, base); setFreeFields(m => ({ ...m, [id]: false })); }} />;
+        const Field = f.control === "number" ? NumberField : SliderField;
+        return <Field key={f.key} label={f.label} hint={f.hint} value={value as number} min={f.min} max={f.max} step={f.step} unit={f.unit}
+          onChange={v => update(d.id, f.key, v)} modified={value !== base} onReset={() => update(d.id, f.key, base)} />;
+      }
+      // SwitchField keeps the label left and the switch on the right edge, like slider readouts.
+      if (f.type === "boolean") return <SwitchField key={f.key} label={f.label} hint={f.hint} checked={value as boolean} onChange={v => update(d.id, f.key, v)} />;
+      if (f.type === "select") return <Row key={f.key} label={f.label} hint={f.hint}><Select aria-label={label} width="100%" value={value as string} options={f.options} onChange={v => update(d.id, f.key, v)} /></Row>;
+      // Inline in the animation's own group (no second level): the field label names what it controls.
+      const curve = value as Bezier;
+      const easing = tokensForField(f, tokenSet);
+      const presets: BezierPreset[] | undefined = easing.length ? easing.map(t => ({ value: t.name, label: t.label, short: t.label, curve: t.value as Bezier })) : undefined;
+      return <Row key={f.key} stacked label={f.label} hint={f.hint} modified={curve.some((n, i) => n !== f.default[i])} onReset={() => update(d.id, f.key, f.default)}>
+        <div className="at-mw-bezier"><BezierEditor size={180} framed presets={presets} presetPicker={!presets || presets.length <= 8 ? "radial" : "select"} value={curve} onChange={v => update(d.id, f.key, v)} /></div></Row>;
+    })}
+  </PanelGroup>), [minimized, definitions, config.animations, baseline, tokenSet, freeFields, update, replay]);
+
   return <>
     {children}
     {createPortal(<AttuneRoot theme={theme} material="frosted" blur={24} opacity={0.52} className="at-mw-root">
@@ -262,38 +295,7 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
             <button type="button" className="at-icon-btn" aria-label="移除 Token" title="移除 Token，恢复连续调节" onClick={unloadTokens}><X size={13} /></button></div>}
           <ScrollArea className="at-mw-scroll-area" viewportClassName="at-mw-scroll">
             {!definitions.length && <p className="at-mw-note">还没有动效。注册动效后，参数会显示在这里。</p>}
-            {definitions.map((d, index) => <PanelGroup key={d.id} title={d.label} badge={String(index + 1).padStart(2, "0")}
-              actions={<Button size="sm" iconOnly icon={<Play size={12} />} aria-label={`重播${d.label}`} onClick={() => replay(d.id)} />}>
-              {d.description && <p className="at-mw-note">{d.description}</p>}
-              {d.fields.map(f => {
-                const value = config.animations[d.id][f.key];
-                const label = `${d.label} · ${f.label}`;
-                const base = baseline.animations[d.id][f.key];
-                if (f.type === "number") {
-                  // With tokens, a slider over a mixed scale (short/medium/long) is too dense to use:
-                  // pick a token from a dropdown, or choose “自定义” to get a free slider back.
-                  const options = f.control === "number" ? [] : tokensForField(f, tokenSet);
-                  const id = `${d.id}.${f.key}`;
-                  if (options.length >= 2) return <TokenField key={f.key} label={f.label} hint={f.hint} value={value as number} min={f.min} max={f.max} step={f.step} unit={f.unit}
-                    tokens={options.map(t => ({ value: t.value as number, label: t.label }))}
-                    custom={!!freeFields[id]} onCustomChange={c => setFreeFields(m => ({ ...m, [id]: c }))}
-                    onChange={v => update(d.id, f.key, v)} modified={value !== base}
-                    onReset={() => { update(d.id, f.key, base); setFreeFields(m => ({ ...m, [id]: false })); }} />;
-                  const Field = f.control === "number" ? NumberField : SliderField;
-                  return <Field key={f.key} label={f.label} hint={f.hint} value={value as number} min={f.min} max={f.max} step={f.step} unit={f.unit}
-                    onChange={v => update(d.id, f.key, v)} modified={value !== base} onReset={() => update(d.id, f.key, base)} />;
-                }
-                // SwitchField keeps the label left and the switch on the right edge, like slider readouts.
-                if (f.type === "boolean") return <SwitchField key={f.key} label={f.label} hint={f.hint} checked={value as boolean} onChange={v => update(d.id, f.key, v)} />;
-                if (f.type === "select") return <Row key={f.key} label={f.label} hint={f.hint}><Select aria-label={label} width="100%" value={value as string} options={f.options} onChange={v => update(d.id, f.key, v)} /></Row>;
-                // Inline in the animation's own group (no second level): the field label names what it controls.
-                const curve = value as Bezier;
-                const easing = tokensForField(f, tokenSet);
-                const presets: BezierPreset[] | undefined = easing.length ? easing.map(t => ({ value: t.name, label: t.label, short: t.label, curve: t.value as Bezier })) : undefined;
-                return <Row key={f.key} stacked label={f.label} hint={f.hint} modified={curve.some((n, i) => n !== f.default[i])} onReset={() => update(d.id, f.key, f.default)}>
-                  <div className="at-mw-bezier"><BezierEditor size={180} framed presets={presets} presetPicker={!presets || presets.length <= 8 ? "radial" : "select"} value={curve} onChange={v => update(d.id, f.key, v)} /></div></Row>;
-              })}
-            </PanelGroup>)}
+            {groups}
           </ScrollArea>
           <footer className="at-mw-footer"><Button icon={<Play size={13} />} disabled={!definitions.length} onClick={() => replay()}>重播全部</Button>
             <Button iconOnly icon={<SwatchBook size={14} />} aria-label="加载动效 Token" title={tokenSet ? `已加载 ${tokenSet.name} · 更换 Token` : "加载动效 Token（设计组 motion token）"} aria-expanded={sheet} onClick={() => { setSheet(v => !v); setTokenError(""); }} />

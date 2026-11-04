@@ -22,6 +22,17 @@ export function bezierSideEdges(curve: Curve, size: number, gap = 2.5) {
   };
   points.unshift(extend(points[0], points[1]));
   points.push(extend(points.at(-1)!, points.at(-2)!));
+  for (const point of points) {
+    const start = Math.max(0, Math.ceil((point.x - radius) / size * count));
+    const end = Math.min(count, Math.floor((point.x + radius) / size * count));
+    for (let index = start; index <= end; index++) {
+      const distance = index / count * size - point.x;
+      if (Math.abs(distance) > radius) continue;
+      const height = Math.sqrt(Math.max(0, radius * radius - distance * distance));
+      upper[index] = Math.min(upper[index], point.y - height);
+      lower[index] = Math.max(lower[index], point.y + height);
+    }
+  }
   for (let j = 1; j < points.length; j++) {
     const a = points[j - 1], b = points[j], dx = b.x - a.x, dy = b.y - a.y;
     const length = Math.hypot(dx, dy);
@@ -31,17 +42,13 @@ export function bezierSideEdges(curve: Curve, size: number, gap = 2.5) {
     const end = Math.min(count, Math.floor((Math.max(a.x, b.x) + radius) / size * count));
     for (let k = start; k <= end; k++) {
       const x = k / count * size;
-      const add = (y: number) => { upper[k] = Math.min(upper[k], y); lower[k] = Math.max(lower[k], y); };
-      for (const p of [a, b]) {
-        const d = x - p.x;
-        if (Math.abs(d) <= radius) {
-          const h = Math.sqrt(Math.max(0, radius * radius - d * d));
-          add(p.y - h); add(p.y + h);
-        }
-      }
-      if (Math.abs(dx) > 1e-10) for (const sign of [-1, 1]) {
+      if (Math.abs(dx) > 1e-10) for (let sign = -1; sign <= 1; sign += 2) {
         const t = (x - a.x - sign * nx) / dx;
-        if (t >= 0 && t <= 1) add(a.y + sign * ny + t * dy);
+        if (t >= 0 && t <= 1) {
+          const height = a.y + sign * ny + t * dy;
+          upper[k] = Math.min(upper[k], height);
+          lower[k] = Math.max(lower[k], height);
+        }
       }
     }
   }
