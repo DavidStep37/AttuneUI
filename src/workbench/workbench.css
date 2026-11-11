@@ -11,16 +11,36 @@
 .at-mw-menu[data-below] { bottom: auto; top: calc(100% + 8px); }
 .at-mw-menu-caption { color: var(--at-color-text-tertiary); font-size: 11px; padding: 0 6px; }
 .at-mw-expanded { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; border-radius: inherit; }
-.at-mw-head { display: flex; flex: none; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--at-color-border-subtle); }
+.at-mw-head { display: flex; flex: none; align-items: center; gap: 10px; padding: 16px 20px 14px; cursor: grab; touch-action: none; user-select: none; }
+.at-mw-head:active { cursor: grabbing; }
+.at-mw-head button:not(.at-mw-grip) { cursor: pointer; }
 .at-mw-heading { flex: 1; min-width: 0; }
 .at-mw-heading strong { font-size: 14px; letter-spacing: -0.3px; }
 .at-mw-heading strong span { font-weight: 400; color: var(--at-color-text-secondary); }
+/* Expanded panel: a slightly sunken frame (header + footer) holding a raised parameter sheet. */
+.at-mw-shell:not([data-mode="minimized"]) { --at-mw-frame: color-mix(in srgb, var(--at-color-surface-sunken) 78%, var(--at-color-border-subtle)); }
+.at-root[data-at-material="frosted"] .at-mw-shell.at-panel:not([data-mode="minimized"]) { background: color-mix(in srgb, var(--at-mw-frame) var(--at-surface-opacity, 78%), transparent); }
+.at-root:not([data-at-material="frosted"]) .at-mw-shell.at-panel:not([data-mode="minimized"]) { background: var(--at-mw-frame); }
+.at-mw-board { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0 8px; overflow: hidden; border-radius: 16px; background: color-mix(in srgb, var(--at-color-surface-panel) 58%, transparent); box-shadow: 0 1px 2px var(--at-color-shadow-color-soft), 0 6px 18px var(--at-color-shadow-color-soft); }
+/* Outline on top, so a lit (hovered) section never paints over it. */
+.at-mw-board::after { content: ""; position: absolute; inset: 0; z-index: 3; border-radius: inherit; box-shadow: inset 0 0 0 1px var(--at-color-border-subtle); pointer-events: none; }
 .at-mw-scroll-area { flex: 1; }
-/* 24px sides with the 12px group card pad: a hovered card keeps 12px from the frame and the header line. */
-.at-mw-scroll { overscroll-behavior: contain; padding: 12px 24px 16px; }
+.at-mw-scroll { overscroll-behavior: contain; padding: 0; }
+/* Animation groups: full-bleed sections divided by hairlines that stop at the board edge. The board
+   is a translucent panel tint; the hovered section lights up to solid surface-raised. */
+.at-mw-board .at-group { margin: 0; padding: 6px 16px 4px; border-radius: 0; transition: background-color var(--at-motion-duration-micro) var(--at-ease-standard); }
+.at-mw-board .at-group + .at-group { margin-top: 0; }
+/* Section play sits in the footer play's column: board 8px + section padding 16px − 4px = 20px = footer padding. */
+.at-mw-board .at-group-leading { margin-left: -4px; }
+/* A little air between a section title row and its first field. */
+.at-mw-board .at-group-body { padding-top: 8px; }
+.at-mw-board .at-group + .at-group::before { top: 0; left: 0; right: 0; height: 1px; background: var(--at-color-border-subtle); opacity: 1; }
+.at-mw-board .at-group:not(.at-group .at-group):hover,
+.at-mw-board .at-group:not(.at-group .at-group):focus-within:has(:focus-visible) { background: var(--at-color-surface-raised); box-shadow: none; }
+.at-mw-board .at-group:hover::before, .at-mw-board .at-group:hover + .at-group::before { opacity: 1; }
 .at-mw-note { margin: 0 0 10px; color: var(--at-color-text-secondary); font-size: 11px; line-height: 1.7; }
 .at-mw-bezier { width: 100%; padding-top: 4px; }
-.at-mw-footer { display: flex; flex: none; justify-content: flex-end; align-items: center; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--at-color-border-subtle); }
+.at-mw-footer { display: flex; flex: none; justify-content: flex-end; align-items: center; gap: 12px; padding: 14px 20px 16px; }
 .at-mw-footer > :first-child { margin-right: auto; }
 .at-mw-status:not(:empty) { position: absolute; bottom: calc(100% + 10px); left: 0; right: 0; padding: 10px; border-radius: 10px; background: var(--at-color-surface-raised); box-shadow: 0 4px 20px var(--at-color-shadow-color); font-size: 11px; text-align: center; }
 .at-mw-status[data-below]:not(:empty) { bottom: auto; top: calc(100% + 10px); }
@@ -42,17 +62,3 @@
 .at-mw-shell[data-resizing] .at-mw-resize span { opacity: 1; width: 48px; background: var(--at-color-slider-fill); }
 .at-mw-shell[data-resizing], .at-mw-shell[data-resizing] * { cursor: ns-resize !important; user-select: none; }
 .at-mw-resize:focus-visible { outline: 2px solid var(--at-color-focus-ring); outline-offset: -2px; }
-/* Loaded token set: a slim line under the header. */
-.at-mw-tokenbar { display: flex; flex: none; align-items: center; gap: 6px; padding: 8px 14px 8px 22px; border-bottom: 1px solid color-mix(in srgb, var(--at-color-border-subtle) 70%, transparent); color: var(--at-color-text-secondary); font-size: 11px; }
-.at-mw-tokenbar svg { flex: none; color: var(--at-color-accent-default); }
-.at-mw-tokenbar-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--at-color-text-primary); font-weight: 500; }
-.at-mw-tokenbar-meta { flex: none; margin-right: auto; color: var(--at-color-text-tertiary); }
-/* Token loading sheet, floating above the footer inside the panel. */
-.at-mw-sheet { position: absolute; left: 12px; right: 12px; bottom: 76px; z-index: 4; display: flex; flex-direction: column; gap: 10px; max-height: calc(100% - 150px); padding: 14px 16px 16px; box-sizing: border-box; overflow: auto; border-radius: 16px; background: var(--at-color-surface-raised); box-shadow: inset 0 0 0 1px var(--at-color-border-subtle), 0 12px 40px var(--at-color-shadow-color); }
-.at-mw-sheet-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
-.at-mw-sheet .at-mw-note { margin: 0; }
-.at-mw-sheet-library { display: flex; flex-wrap: wrap; gap: 8px; }
-.at-mw-sheet textarea { width: 100%; min-height: 120px; resize: vertical; box-sizing: border-box; padding: 10px 12px; border: 0; border-radius: 10px; background: var(--at-color-surface-sunken); box-shadow: inset 0 0 0 1px var(--at-color-border-subtle); color: var(--at-color-text-primary); font: 11px/1.55 var(--at-font-mono); outline: none; }
-.at-mw-sheet textarea:focus { background: var(--at-color-surface-panel); box-shadow: inset 0 0 0 1px var(--at-color-border-strong), 0 0 0 3px color-mix(in srgb, var(--at-color-focus-ring) 22%, transparent); }
-.at-mw-sheet-error { margin: 0; color: var(--at-color-danger); font-size: 11px; line-height: 1.6; }
-.at-mw-sheet-actions { display: flex; justify-content: flex-end; gap: 8px; }

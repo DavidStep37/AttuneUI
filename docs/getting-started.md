@@ -100,6 +100,21 @@ AttuneRoot 将 tokens 写在局部根节点。Select / Toast 的 body portal 会
 - 多层模糊的合成效果受浏览器 backdrop root 影响。建议只让少量浮动表面承载模糊，不把它铺满长列表。
 - AttuneRoot 默认监听系统减少动态效果；`feel.reduced` 可以显式覆盖。系统减少透明度始终优先。
 
+## 组件一览与近期新增 API
+
+| 组件 | 用途 | 近期新增 / 变化 |
+| --- | --- | --- |
+| `Button` | 主 / 次 / 幽灵按钮，iconOnly | — |
+| `ToggleButton` | 放在按钮行里的开关：关为普通（或图标）按钮，开为浅石墨色调 + 文案 + × | 新组件。复用 Button 全部外形与 `button.*` 手感参数；`pressed`、`onPressedChange`、`pressedLabel`，`aria-pressed` |
+| `Slider` / `SliderField` | 连续数值 | `marks` 分段模式：刻度点、磁吸、方向键逐段；`SliderField` 的 mark 可带 `label`（显示在读数旁）。手感参数 `markSize` / `snapRadius` / `snapStrength` / `snapSpring`。适合稀疏均匀刻度 |
+| `TokenField` | 从固定刻度（如设计 token）中选值 | 新组件。token 下拉（名称 + 数值），第一项“自定义”展开连续滑块 + 输入；`tokens`、`custom`、`onCustomChange` |
+| `Select` | 下拉 / 圆盘（`variant="radial"`） | `placeholder`（值不在选项中时显示，如“自定义”）。下拉展开样式：触发器描边扩成 2.5px 底环 + 白色表头胶囊，当前值浅底，首次悬停直接出现高亮 |
+| `RadialPicker` | 圆盘选择（经 Select 的 radial 变体使用） | 选中项为扇区内侧弯曲胶囊；悬停填充像液面由内向外；`placeholder`；`markWidth`、`fillSpring` |
+| `ScrollArea` | 原生滚动 + 自绘滚动条 | 新组件。`scrollbar={false}` 隐藏滚动条，`fade` 下方有内容时底部渐隐；拖动其他控件时滚动条不响应 |
+| `PanelGroup` | 可折叠参数分组 | 箭头在右、无左缩进、悬停卡片；`badge` 编号可选；`leading`（标题前的控件，如重播按钮）；可选受控 `open` / `onOpenChange` |
+| `BezierEditor` | 三次贝塞尔曲线 | `framed`（下沉容器包住曲线 + 输入 + 预设）、`presets`（如 easing token）、单个逗号分隔输入框（`parseBezier`）、超范围自动缩放、端点角为直角 |
+| `MotionWorkbench` | 预览页的动效调参工具（见 skills/attune-motion） | 抬升参数面板、高度贴合内容、`tokens` 预设开关、`defaultPresetEnabled`；`tokenLibrary` 为兼容别名 |
+
 ## 布局与交互
 
 `size="sm" | "md" | "lg"` 对应 24 / 28 / 32px 占位，默认 md。同行控件请传同一个 size；动态轮廓可超出占位，相邻控件至少保留 8px。当前以桌面工具面板为目标，不能把 24px 直接当作移动端触屏命中区标准。

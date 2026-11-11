@@ -141,8 +141,8 @@ export const componentSchemas = {
   ],
   select: [
     sd("openSpring", "展开", "列表", { visualDuration: 0.3, bounce: 0.3 }),
-    sd("highlightSpring", "高亮跟随", "高亮", { visualDuration: 0.2, bounce: 0.2 }),
-    n("highlightStretch", "高亮拉伸", "高亮", 0, 1, 0.01, { default: 0.5 }),
+    sd("highlightSpring", "高亮跟随", "高亮", { visualDuration: 0.25, bounce: 0.15 }),
+    n("highlightStretch", "高亮拉伸", "高亮", 0, 1, 0.01, { default: 0.3 }),
     n("overscroll", "触底拉伸", "滚动", 0, 40, 1, { default: 0, unit: "px", hint: "滚动到最后一项后继续下滑，菜单向下拉伸的最大距离；0 关闭" }),
     sd("overscrollSpring", "拉伸回弹", "滚动", { visualDuration: 0.02, bounce: 0 }),
   ],

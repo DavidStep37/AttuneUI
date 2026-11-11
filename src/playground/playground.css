@@ -580,3 +580,10 @@ button {
   font-style: normal;
   font-size: var(--at-text-caption-size);
 }
+.pg-scroll-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--at-space-4);
+  width: 100%;
+  max-width: 720px;
+}

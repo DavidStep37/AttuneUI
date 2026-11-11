@@ -95,6 +95,11 @@
           "target": "@components/attune/components/Timeline.tsx"
         },
         {
+          "path": "src/components/ToggleButton.tsx",
+          "type": "registry:file",
+          "target": "@components/attune/components/ToggleButton.tsx"
+        },
+        {
           "path": "src/components/ValueRoll.tsx",
           "type": "registry:file",
           "target": "@components/attune/components/ValueRoll.tsx"

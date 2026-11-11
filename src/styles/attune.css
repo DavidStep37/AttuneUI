@@ -353,6 +353,62 @@
   display: block;
 }
 
+/* ToggleButton: a Button whose label + × slide open from the icon when on.
+   Off and icon-only it is exactly an icon button (padding centres the 14px icon in a square). */
+.at-toggle-btn .at-btn-label {
+  gap: 0;
+}
+.at-toggle-btn {
+  padding: 0 var(--at-space-2) 0 var(--at-space-3);
+  transition: padding var(--at-motion-duration-micro) var(--at-ease-standard);
+}
+.at-toggle-btn[data-collapsed] {
+  padding: 0 calc((var(--at-control-height) - 14px) / 2);
+}
+.at-toggle-btn[data-size="sm"][data-collapsed] {
+  padding: 0 calc((var(--at-size-control-sm) - 14px) / 2);
+}
+.at-toggle-btn:not([data-pressed]):not([data-collapsed]) {
+  padding-right: var(--at-space-3);
+}
+/* Selected: a light graphite tint and outline — clearly on, but quieter than a primary button. */
+.at-toggle-btn[data-pressed] .at-btn-core {
+  fill: color-mix(in srgb, var(--at-color-fill-primary) 10%, var(--at-color-surface-panel));
+}
+.at-toggle-btn[data-pressed]:hover .at-btn-core {
+  fill: color-mix(in srgb, var(--at-color-fill-primary) 16%, var(--at-color-surface-panel));
+}
+.at-toggle-btn[data-pressed] :is(.at-btn-shell, .at-btn-shell-line) {
+  opacity: 1;
+}
+.at-toggle-btn[data-pressed] .at-btn-shell-line {
+  stroke: color-mix(in srgb, var(--at-color-fill-primary) 40%, transparent);
+}
+.at-toggle-btn[data-pressed] .at-btn-icon {
+  color: var(--at-color-fill-primary);
+}
+.at-toggle-btn-text {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.at-toggle-btn-label {
+  padding-left: 6px;
+}
+.at-toggle-btn-close {
+  display: inline-flex;
+  margin-left: 6px;
+  opacity: 0.72;
+}
+.at-toggle-btn:hover .at-toggle-btn-close {
+  opacity: 1;
+}
+.at-toggle-btn-close svg {
+  width: 12px;
+  height: 12px;
+}
+
 /* ------------------------------------------------------------ Switch */
 
 .at-switch {
@@ -1252,6 +1308,11 @@
   font-weight: 500;
   line-height: 16px;
 }
+.at-group-leading {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
 .at-group-actions {
   display: flex;
   gap: 4px;
@@ -1542,6 +1603,23 @@
   /* The thumb squash is the end-of-content feedback; don't also hand the wheel to the page. */
   overscroll-behavior-y: contain;
   scrollbar-width: none;
+}
+/* Bottom fade (fade prop): masks content, so it works on any (even translucent) background. */
+@property --at-scroll-fade {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+.at-scroll {
+  --at-scroll-fade: 0px;
+  transition: --at-scroll-fade 200ms var(--at-ease-standard);
+}
+.at-scroll[data-fade] {
+  --at-scroll-fade: 40px;
+}
+.at-scroll[data-fades] .at-scroll-view {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--at-scroll-fade)), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--at-scroll-fade)), transparent);
 }
 .at-scroll-view::-webkit-scrollbar {
   display: none;

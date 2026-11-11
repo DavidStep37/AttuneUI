@@ -6,6 +6,7 @@ export * from "./core/schema";
 export { Slider } from "./components/Slider";
 export { NumberInput, useScrub } from "./components/Input";
 export { Button } from "./components/Button";
+export { ToggleButton, type ToggleButtonProps } from "./components/ToggleButton";
 export { Switch, SwitchField } from "./components/Switch";
 export { Segmented } from "./components/Segmented";
 export { Select } from "./components/Select";

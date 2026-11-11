@@ -64,7 +64,7 @@ function Preview() {
 
 这是给设计师复制回 AI 的交接格式，保留所有已注册参数。它与内部 `MotionConfig.animations[id]` 的扁平参数对象不同，不能直接 `setConfig(JSON.parse(export))`。将用户提供的 JSON 应用回代码时，检查 schemaVersion/projectId/id/字段/类型/范围，取 `animations[id].parameters` 更新对应默认值；未匹配的字段先报告，不悄悄丢弃。
 
-参数默认只保存在内存；刷新恢复源码默认参数。面板位置以 `attune-motion:placement:v1:<projectId>` 单独存储；没有修改原 Playground 或 glass/liquid 的存储。需要跨刷新保存参数时，可基于已验证 schema 增加项目自己的存储，而不是直接信任 localStorage JSON。
+参数默认只保存在内存；刷新恢复源码默认参数。面板位置以 `attune-motion:placement:v2:<projectId>` 单独存储；没有修改原 Playground 或 glass/liquid 的存储。需要跨刷新保存参数时，可基于已验证 schema 增加项目自己的存储，而不是直接信任 localStorage JSON。
 
 ## 设计组 Token
 
@@ -72,8 +72,8 @@ function Preview() {
 import { MotionWorkbench, parseMotionTokens } from './attune';
 const teamTokens = parseMotionTokens(teamTokenJson);          // 抛出的 Error.message 可直接展示
 <MotionWorkbench definitions={definitions} config={config} onChange={setConfig}
-  tokenLibrary={[teamTokens]}   // “加载 Token”弹层里一键加载
-  tokens={null}>                 // 可选：首次就加载；面板里用户的选择会被记忆并优先
+  tokens={teamTokens}            // 底部出现“启用预设”开关按钮；不传则不显示
+  defaultPresetEnabled={false}>  // 可选：首次是否开启；之后记忆用户的选择
 ```
 
 接受的 token 文件形状（可混用）：
@@ -105,7 +105,7 @@ const teamTokens = parseMotionTokens(teamTokenJson);          // 抛出的 Error
 
 ## 面板与宿主布局
 
-工具只悬浮在页面之上，没有侧栏/Push 模式，不包裹、不推挤也不重排宿主布局；`children` 原样渲染，可省略并与页面并列挂载。展开面板宽 360px，默认高 660px，用户可拖动底边调整高度（最小 260px，不超出视口），高度与位置一起存入 `attune-motion:placement:v1:<projectId>`。
+工具只悬浮在页面之上，没有侧栏/Push 模式，不包裹、不推挤也不重排宿主布局；`children` 原样渲染，可省略并与页面并列挂载。展开面板宽 360px，高度默认贴合内容（分组初始折叠，展开时变高，最高到可视高度 − 48px 后内部滚动），用户可拖动底边设置高度上限（最小 260px，不超出视口，始终贴合内容、不留空白，双击手柄恢复默认上限（可视高度 − 48）），上限与位置一起存入 `attune-motion:placement:v2:<projectId>`。
 
 面板可能遮住页面右侧内容，这是预期行为：用户可拖走面板、调矮或收起成 Toolbar。不要为工具给页面加 margin、scale 或全局 transform。工具通过 body portal 脱离宿主 transform，层级默认 900，Attune 下拉为 1000；若宿主层级不同，统一调整同一套层级，不单独把面板提到下拉上面。
 

@@ -17,7 +17,7 @@ for (const file of item.files) {
   await writeFile(target, file.content);
 }
 const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
-await writeFile(path.join(destination, 'assets/source-manifest.json'), JSON.stringify({ version: '0.2.0', source: 'AttuneUI working tree',
+await writeFile(path.join(destination, 'assets/source-manifest.json'), JSON.stringify({ version: '0.3.0', source: 'AttuneUI working tree',
   dependencies: pkg.dependencies, files: item.files.map(f => f.path), license: 'Not selected; local preview distribution only.' }, null, 2) + '\n');
 await mkdir(path.join(destination, 'assets/example'), { recursive: true });
 let example = await readFile(path.join(root, 'src/demos/motion-lab.tsx'), 'utf8');
@@ -29,4 +29,4 @@ await cp(path.join(root, 'src/demos/motion-lab.css'), path.join(destination, 'as
 await writeFile(path.join(destination, 'assets/example/motion-tokens.ts'), (await readFile(path.join(root, 'src/demos/motion-tokens.ts'), 'utf8')).replaceAll('../workbench/', '__ATTUNE__/workbench/'));
 // The maintainer browser regression ships with the skill so another machine can verify the installed copy.
 await cp(path.join(root, 'scripts/check-motion-workbench.mjs'), path.join(destination, 'scripts/verify-example.mjs'));
-console.log(`Built self-contained skill v0.2.0: ${destination}`);
+console.log(`Built self-contained skill v0.3.0: ${destination}`);

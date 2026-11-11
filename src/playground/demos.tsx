@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { BezierEditor, CurveGlyph, bezierPresets, type Bezier } from "../components/BezierEditor";
 import { Button } from "../components/Button";
+import { ToggleButton } from "../components/ToggleButton";
+import { SwatchBook } from "lucide-react";
 import { NumberField, Row, SliderField } from "../components/Panel";
 import { Segmented } from "../components/Segmented";
 import { Select } from "../components/Select";
@@ -90,6 +92,8 @@ function TimelineDemo({ variant }: { variant: Variant }) {
 function ButtonDemo({ variant }: { variant: Variant }) {
   const [last, setLast] = useState<string>("—");
   const [count, setCount] = useDemo("button.count", 0);
+  const [preset, setPreset] = useDemo("button.preset", false);
+  const [snap, setSnap] = useDemo("button.snap", true);
   const hit = (name: string) => {
     setLast(name);
     setCount((c) => c + 1);
@@ -117,6 +121,12 @@ function ButtonDemo({ variant }: { variant: Variant }) {
           </Button>
           <Button iconOnly aria-label="减少" icon={<IconMinus />} onClick={() => hit("减少")} />
           <Button iconOnly aria-label="增加" icon={<IconPlus />} onClick={() => hit("增加")} />
+        </div>
+      )}
+      {variant === "stage" && (
+        <div className="pg-inline">
+          <ToggleButton icon={<SwatchBook size={14} />} aria-label="启用预设" pressedLabel="启用预设" pressed={preset} onPressedChange={(v) => { setPreset(v); hit(v ? "启用预设" : "关闭预设"); }} />
+          <ToggleButton icon={<IconPlus />} pressed={snap} onPressedChange={(v) => { setSnap(v); hit(v ? "开启吸附" : "关闭吸附"); }}>吸附</ToggleButton>
         </div>
       )}
       <div className="pg-meta">
@@ -317,9 +327,14 @@ function TabsDemo({ variant }: { variant: Variant }) {
 const scrollRows = ["卡片入场", "按钮悬停", "提示进出场", "列表展开", "标签切换", "开关吸附", "滑块拖尾", "曲线回弹", "时间轴拨弦", "复选回弹", "气泡消散", "分段流动", "数字滚动", "面板展开"];
 
 function ScrollbarDemo({ variant }: { variant: Variant }) {
-  return <ScrollArea className="pg-scroll-demo" data-variant={variant} viewportClassName="pg-scroll-demo-view">
-    {scrollRows.map((r, i) => <div key={r} className="pg-scroll-row"><span>{String(i + 1).padStart(2, "0")}</span>{r}<em>{240 + i * 40} ms</em></div>)}
-  </ScrollArea>;
+  const rows = scrollRows.map((r, i) => <div key={r} className="pg-scroll-row"><span>{String(i + 1).padStart(2, "0")}</span>{r}<em>{240 + i * 40} ms</em></div>);
+  const bar = <ScrollArea className="pg-scroll-demo" data-variant={variant} viewportClassName="pg-scroll-demo-view">{rows}</ScrollArea>;
+  if (variant !== "stage") return bar;
+  return <div className="pg-scroll-pair">
+    {bar}
+    {/* No bar, a bottom fade while more content lies below (as in the Motion workbench board). */}
+    <ScrollArea className="pg-scroll-demo" data-variant={variant} viewportClassName="pg-scroll-demo-view" scrollbar={false} fade>{rows}</ScrollArea>
+  </div>;
 }
 
 export const demos: Record<ComponentId, (p: { variant: Variant }) => ReactNode> = {
@@ -364,6 +379,7 @@ export const hints: Record<ComponentId, string[]> = {
     "按下：被按的一侧下压，另一侧翘起",
     "命中区域随按钮一起偏移，所见即所得",
     "成排按钮只有指针所在的那个响应",
+    "开关按钮 ToggleButton（弹窗中最后一行）：点击后变为选中态，文案和 × 从图标处展开；再次点击收起。外形与手感参数与按钮相同",
   ],
   bezier: [
     "拖动控制点：曲线实时变化，连接线越拉越细",
@@ -385,14 +401,14 @@ export const hints: Record<ComponentId, string[]> = {
   ],
   select: [
     "点击底部第三条「列表滚动」：滚到最后一项后继续下滑，菜单向下拉伸，松手回弹",
-    "出现顺序在弹窗里是圆盘变体：选项等分圆盘，悬停的扇区变成石墨色并向外撑起",
-    "打开：列表从触发器本身生长出来，而不是凭空出现",
-    "hover 选项：高亮底色连续滑动，前沿快、后沿稍慢",
+    "出现顺序在弹窗里是圆盘变体：选中项是扇区内侧的弯曲胶囊；悬停时石墨色像液面从内缘升到外缘，边缘向外撑起",
+    "打开：触发器的描边向外扩成浅灰底环，原位置变成白色表头，列表从这里生长出来",
+    "当前值有一层浅色底；hover 选项：石墨高亮连续滑动，前沿快、后沿稍慢，首次悬停直接出现在该行",
     "展开途中再次点击，立即反向收回",
     "↑ ↓ 移动，Enter 选择，Esc 关闭",
   ],
   checkbox: ["悬停轻轻放大，按下收缩，选中标记带回弹出现", "支持未选、选中、半选和禁用状态；Space 切换", "全部效果与子项联动，部分选中时显示短横线"],
   feedback: ["入场：从下方可调距离向上弹出，透明度逐渐增加", "点击关闭：气泡放大、模糊并消散；自动关闭只模糊淡出", "Alert 常驻；Message 在当前位置出现；Toast 浮在页面上方", "悬停或键盘聚焦暂停自动关闭；支持减弱动效"],
   tabs: ["点击或方向键切换，底部指示条连续跟随", "内容轻微位移并淡入淡出，Home / End 跳到首尾标签", "禁用项跳过，Tab 键进入当前内容面板"],
-  scrollbar: ["滚动或指针进入区域：细滑块淡入，停下并离开后淡出", "指针靠近右侧：滑块变粗，浅色外轨道包裹它，出现白色抓取点", "拖动滑块滚动；点击空轨道，内容平滑滑到对应位置", "滚到顶或底后继续滚：滑块贴着端点被压短，停下后弹回", "仍是原生滚动：触控板、触摸、键盘和读屏行为不变"],
+  scrollbar: ["滚动或指针进入区域：细滑块淡入，停下并离开后淡出", "指针靠近右侧：滑块变粗，浅色外轨道包裹它，出现白色抓取点", "拖动滑块滚动；点击空轨道，内容平滑滑到对应位置", "滚到顶或底后继续滚：滑块贴着端点被压短，停下后弹回", "仍是原生滚动：触控板、触摸、键盘和读屏行为不变", "弹窗中第二个示例：scrollbar={false} fade——不显示滚动条，下方还有内容时底部渐隐，滚到底消失"],
 };

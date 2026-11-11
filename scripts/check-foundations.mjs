@@ -138,5 +138,16 @@ try {
     await page.screenshot({ path: `.backup/foundation-review/mobile-${theme}.png`, fullPage: true });
   }
   assert.deepEqual(errors, []);
-  console.log('PASS segmented bulge/residue, nested Select spacing, Timeline inset, Checkbox mixed/keyboard, Tabs navigation, feedback enter/manual/auto/pause/portal, parameters, reduced motion, mobile themes');
+  // ScrollArea (playground modal): its bar must not react while a slider in the panel is dragged toward it.
+  await page.setViewport({ width: 1440, height: 960 }); await page.goto(process.env.ATTUNE_URL ?? 'http://localhost:5188', { waitUntil: 'networkidle0' }); await pause();
+  await page.click(`${card('slider')} .pg-card-head`); await pause(800);
+  const modalScroll = '.pg-modal-panel-scroll';
+  assert(await page.$eval(modalScroll, el => el.dataset.scrollable !== undefined), 'Modal panel scrolls');
+  const thumbBox = await (await page.$('.pg-modal-panel [role="slider"]')).boundingBox();
+  const barBox = await (await page.$(`${modalScroll} .at-scroll-bar`)).boundingBox();
+  await page.mouse.move(thumbBox.x + thumbBox.width / 2, thumbBox.y + thumbBox.height / 2); await page.mouse.down();
+  await page.mouse.move(barBox.x + barBox.width / 2, thumbBox.y + thumbBox.height / 2, { steps: 10 }); await pause(250);
+  assert.equal(await page.$eval(modalScroll, el => el.dataset.active), undefined, 'Scrollbar ignores hover while a slider is dragged');
+  await page.mouse.up(); await page.keyboard.press('Escape'); await pause();
+  console.log('PASS segmented bulge/residue, nested Select spacing, Timeline inset, Checkbox mixed/keyboard, Tabs navigation, feedback enter/manual/auto/pause/portal, parameters, reduced motion, mobile themes, scrollbar ignores slider drags');
 } finally { await browser.close(); }

@@ -39,7 +39,7 @@ await writeFile(path.join(root, '.backup/last-skill-consumer.json'), JSON.string
 assert((await readdir(path.join(skill, 'assets/example'))).includes('main.tsx'));
 // Cross-machine fidelity: reference screenshots, visual spec and the browser self-check ship in the package.
 const refs = await readdir(path.join(skill, 'assets/reference'));
-for (const name of ['01-toolbar.png', '02-toolbar-menu.png', '03-panel.png', '04-group-hover-card.png', '05-bezier-framed.png', '06-tokens.png', '07-token-custom.png']) assert(refs.includes(name), `Missing reference ${name}`);
+for (const name of ['01-toolbar.png', '02-toolbar-menu.png', '03-panel-collapsed.png', '03-panel.png', '04-group-hover-card.png', '05-bezier-framed.png', '06-tokens.png', '07-token-custom.png']) assert(refs.includes(name), `Missing reference ${name}`);
 await readFile(path.join(skill, 'references/visual-spec.md'));
 const verify = await readFile(path.join(skill, 'scripts/verify-example.mjs'), 'utf8');
 assert(verify.includes('ATTUNE_MOTION_URL') && verify.includes('chromeCandidates'), 'verify-example must be the portable browser check');

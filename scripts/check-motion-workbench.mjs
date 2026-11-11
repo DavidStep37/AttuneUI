@@ -40,6 +40,10 @@ const dragTo = async (x, y) => {
   await page.mouse.move(b.x + 12, b.y + 14); await page.mouse.down();
   await page.mouse.move(b.x + 12 + x - shell.x, b.y + 14 + y - shell.y, { steps: 12 }); await page.mouse.up(); await pause();
 };
+const openAll = async () => {
+  for (const toggle of await page.$$('.at-mw-scroll .at-group:not([data-open]) .at-group-toggle')) { await toggle.click(); await pause(450); }
+  await pause();
+};
 const fits = async () => {
   const b = await bounds(); const v = page.viewport();
   assert(b.x >= -1 && b.y >= -1 && b.x + b.w <= v.width + 1 && b.y + b.h <= v.height + 1, `Panel outside viewport: ${JSON.stringify(b)}`);
@@ -49,7 +53,10 @@ await mkdir(shots, { recursive: true });
 try {
   await browser.defaultBrowserContext().overridePermissions(new URL(url).origin, ['clipboard-read', 'clipboard-sanitized-write']);
   await page.setViewport({ width: 1440, height: 960 });
-  await page.goto(url, { waitUntil: 'networkidle0' }); await pause();
+  // A stale v1 fixed height (once written by a stray click on the handle) must not block hugging.
+  await page.goto(url, { waitUntil: 'networkidle0' });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem(`attune-motion:placement:v1:${JSON.parse(document.querySelector('.ml-config')?.textContent ?? '{}').projectId}`, JSON.stringify({ anchor: 'bottom-center', panel: null, height: 266 })); });
+  await page.reload({ waitUntil: 'networkidle0' }); await pause();
   assert.equal(await page.$eval('.at-mw-shell', el => el.dataset.mode), 'minimized');
   const initial = await bounds(); assert(Math.abs(initial.x - (1440 - initial.w) / 2) < 1); assert(initial.w < 160, `Toolbar hugs its content: ${initial.w}`); assert.equal(initial.y, 960 - 52 - 12);
   const bodyStyle = await page.evaluate(() => ({ font: getComputedStyle(document.body).fontSize, color: getComputedStyle(document.body).color }));
@@ -67,6 +74,23 @@ try {
   assert.equal(await page.$eval('.at-mw-shell', el => el.dataset.anchor), 'bottom-center');
   await click('展开调参面板');
   assert.equal(await page.$$eval('.at-mw-scroll > .at-scroll-content > .at-group', els => els.length), 3);
+  // Sections start collapsed and the panel hugs them; it grows as they open, up to viewport − 48, then the board
+  // scrolls (no scrollbar, a bottom fade until the end). Open sections survive collapse/expand.
+  assert.equal(await page.$$eval('.at-mw-scroll .at-group[data-open]', els => els.length), 0, 'Sections start collapsed');
+  // Section play buttons sit before the title, in one column with the footer's “重播全部”; no number badges.
+  const playColumn = await page.evaluate(() => [...document.querySelectorAll('.at-mw-scroll .at-group-leading button, .at-mw-footer [aria-label="重播全部"]')].map(b => { const r = b.getBoundingClientRect(); return [Math.round((r.left + r.width / 2) * 10) / 10, Math.round(r.width)]; }));
+  assert(playColumn.length === 4 && playColumn.every(([x, w]) => x === playColumn[0][0] && w === playColumn[0][1]), `Play buttons aligned: ${JSON.stringify(playColumn)}`);
+  assert.equal(await page.$('.at-mw-shell .at-group-badge'), null, 'No section numbers');
+  const hugged = await bounds(); assert(hugged.h < 360, `Hugs collapsed sections: ${hugged.h}`);
+  await openAll();
+  assert.equal(Math.round((await bounds()).h), 960 - 48, 'Grows with open sections up to viewport − 48');
+  assert.equal(await page.$('.at-mw-shell .at-scroll-bar'), null, 'No scrollbar on the board');
+  assert.equal(await page.$eval('.at-mw-shell .at-scroll', el => el.dataset.fade), 'true', 'Bottom fade while more content below');
+  await page.$eval('.at-mw-scroll', el => { el.scrollTop = el.scrollHeight; }); await pause(300);
+  assert.equal(await page.$eval('.at-mw-shell .at-scroll', el => el.dataset.fade), undefined, 'No fade at the end');
+  await page.$eval('.at-mw-scroll', el => { el.scrollTop = 0; }); await pause(200);
+  await click('收起调参面板'); await click('展开调参面板');
+  assert.equal(await page.$$eval('.at-mw-scroll .at-group[data-open]', els => els.length), 3, 'Open sections remembered');
   assert.match(await page.$eval('.at-mw-shell', el => getComputedStyle(el).backdropFilter), /blur/);
   await page.screenshot({ path: `${shots}/02-floating.png` });
 
@@ -105,6 +129,16 @@ try {
   await page.focus('.at-mw-resize'); await page.keyboard.press('ArrowUp'); await pause(); assert(Math.abs((await bounds()).h - (maxed.h - 20)) < 1, 'Keyboard resize');
   await resizeBy(-150); const resized = await bounds();
   await click('收起调参面板'); await click('展开调参面板'); assert(Math.abs((await bounds()).h - resized.h) < 1, 'Height remembered');
+  // A plain click on the handle keeps the height; double-click returns to hugging, then restore the manual height.
+  const handle = await (await page.$('.at-mw-resize')).boundingBox();
+  await page.mouse.click(handle.x + handle.width / 2, handle.y + 5); await pause(); assert(Math.abs((await bounds()).h - resized.h) < 1, 'Click does not change height');
+  await page.mouse.click(handle.x + handle.width / 2, handle.y + 5, { count: 2 }); await pause();
+  assert.equal(Math.round((await bounds()).h), 960 - 48, 'Double-click returns to the default ceiling');
+  await resizeBy(resized.h - (960 - 48)); assert(Math.abs((await bounds()).h - resized.h) < 2, 'Manual height again');
+  // A dragged height is a ceiling, not a fixed size: collapsing sections still shrinks the panel.
+  for (const t of await page.$$('.at-mw-scroll .at-group[data-open] .at-group-toggle')) { await t.click(); await pause(450); }
+  await pause(); assert((await bounds()).h < 360, 'Ceiling never adds empty space');
+  await openAll(); assert(Math.abs((await bounds()).h - resized.h) < 2, 'Reopened sections stop at the ceiling');
   await page.screenshot({ path: `${shots}/03-resized.png` });
   await click('收起调参面板');
 
@@ -127,27 +161,22 @@ try {
   await click('复制完整 JSON');
   const fallback = await page.$eval('.at-mw-copy-fallback textarea', el => el.value); assert.deepEqual(JSON.parse(fallback), exported);
   assert.match(await page.$eval('[role="status"]', el => el.textContent), /剪贴板不可用/);
-  await page.reload({ waitUntil: 'networkidle0' }); await click('展开调参面板');
+  await page.reload({ waitUntil: 'networkidle0' }); await click('展开调参面板'); await openAll();
   assert(Math.abs((await bounds()).x - remembered.x) < 1, 'Position persisted across reload');
   assert(Math.abs((await bounds()).h - resized.h) < 1, 'Height persisted across reload');
 
-  // Scrollbar must not react while another control is being operated near it.
-  const scroll = '.at-mw-shell .at-scroll';
-  const firstSlider = await (await page.$('.at-mw-scroll .at-slider-thumb')).boundingBox();
-  const bar = await (await page.$('.at-mw-shell .at-scroll-bar')).boundingBox();
-  await page.mouse.move(firstSlider.x + 3, firstSlider.y + 3); await page.mouse.down();
-  await page.mouse.move(bar.x + bar.width / 2, firstSlider.y + 3, { steps: 10 }); await pause(250);
-  assert.equal(await page.$eval(scroll, el => el.dataset.active), undefined, 'Scrollbar ignores hover while a slider is dragged');
-  await page.mouse.up(); await pause();
-
-  // Design tokens: invalid JSON is reported; the library set segments sliders, snaps values,
-  // swaps curve presets, exports token names, persists, and can be removed.
-  await click('加载动效 Token');
-  await page.type('.at-mw-sheet textarea', '{"a": "hello"}');
-  await page.evaluate(() => [...document.querySelectorAll('.at-mw-sheet button')].find(b => b.textContent === '加载').click()); await pause(150);
-  assert.match(await page.$eval('.at-mw-sheet-error', el => el.textContent), /没有识别到动效 token/);
-  await page.evaluate(() => document.querySelector('.at-mw-sheet-library button').click()); await pause();
-  assert.equal(await page.$('.at-mw-sheet'), null, 'Sheet closes after loading');
+  // Preset (design tokens) is a ToggleButton in the footer — no sheet. Off it is an icon button the
+  // size of its neighbours; on it turns graphite and shows “启用预设 ×”. Token fields, snapping, curve
+  // presets, export, persistence and turning it off are checked below.
+  const toggle = '.at-mw-footer .at-toggle-btn';
+  const offBox = await (await page.$(toggle)).boundingBox(); const copyBox = await (await page.$('[aria-label="复制完整 JSON"]')).boundingBox();
+  assert(Math.abs(offBox.width - copyBox.width) < 0.5 && Math.abs(offBox.height - copyBox.height) < 0.5, 'Off toggle matches icon buttons');
+  assert.equal(await page.$eval(toggle, el => el.getAttribute('aria-pressed')), 'false');
+  assert.equal(await page.$('.at-mw-sheet, [role="dialog"]'), null, 'No preset sheet');
+  await page.click(toggle); await pause();
+  assert.equal(await page.$eval(toggle, el => el.getAttribute('aria-pressed')), 'true');
+  assert.match(await page.$eval(toggle, el => el.textContent), /启用预设/);
+  assert.equal(await page.$eval(toggle, el => el.dataset.pressed), 'true', 'On = selected state');
   assert.match(await page.$eval('[role="status"]', el => el.textContent), /个参数改为 token 选择/);
   // Token-mapped number fields become a token dropdown (no slider); px fields stay sliders.
   const tokenFields = await page.$$eval('.at-mw-scroll .at-token-field', els => els.length);
@@ -159,6 +188,7 @@ try {
   assert.equal((await snapshot()).animations.entrance.delay, 0, '0 stays a valid choice');
   const tokenTrigger = '.at-mw-scroll .at-group:first-child .at-token-field .at-select-trigger';
   const pick = async text => {
+    await page.$eval(tokenTrigger, el => el.scrollIntoView({ block: 'center' })); await pause(250); // scrolling the board closes an open select
     await page.click(tokenTrigger); await pause(450);
     assert(await page.$eval('.at-select-option[data-selected]', el => { const v = el.closest('.at-select-view').getBoundingClientRect(), r = el.getBoundingClientRect(); return r.top >= v.top - 1 && r.bottom <= v.bottom + 1; }), 'Selected option scrolled into view');
     await page.evaluate(t => [...document.querySelectorAll('.at-select-option')].find(o => o.querySelector('.at-token-option-name')?.textContent === t).click(), text); await pause();
@@ -179,9 +209,11 @@ try {
   assert.match(tokenExport.animations.notice.tokens.duration, /^Duration\//);
   await pick('short-3'); assert.equal(await segValue(), 200);
   assert.equal(await page.$(free), null, 'Picking a token hides the free slider');
-  await page.reload({ waitUntil: 'networkidle0' }); await click('展开调参面板');
-  assert.equal(await page.$eval('.at-mw-tokenbar-name', el => el.textContent), '设计组 Motion Token', 'Token set persisted');
-  await click('移除 Token');
+  await page.reload({ waitUntil: 'networkidle0' }); await click('展开调参面板'); await openAll();
+  assert.equal(await page.$eval(toggle, el => el.getAttribute('aria-pressed')), 'true', 'Preset choice persisted');
+  await page.click(toggle); await pause();
+  assert.equal(await page.$eval(toggle, el => el.getAttribute('aria-pressed')), 'false');
+  assert.match(await page.$eval('[role="status"]', el => el.textContent), /已关闭预设/);
   assert.equal(await page.$('.at-mw-scroll .at-token-field'), null, 'Removing tokens restores sliders');
   await click('重置全部参数');
 
@@ -202,5 +234,5 @@ try {
   await page.$eval('.ml-bottom button', el => el.click()); await pause(); assert.equal(await page.$('.at-mw-root'), null);
   assert.deepEqual(await page.evaluate(() => ({ font: getComputedStyle(document.body).fontSize, color: getComputedStyle(document.body).color })), bodyStyle);
   assert.deepEqual(errors, []);
-  console.log(`PASS: six anchors, position + height memory, scrollbar ignores drags, design tokens (errors, token dropdowns, pick, deselect → free slider, export, persistence, removal), bottom-edge resize (min/viewport/keyboard), no host reflow, collapse interruption, 3 live adapters, numeric/slider updates, replay isolation, real clipboard + denial, 320/390px, reduced preferences, unmount.\nTested ${url}`);
+  console.log(`PASS: six anchors, position + height memory, play column alignment, hug height (collapsed sections, grow, cap = viewport − 48, fade, remembered sections, dblclick auto), preset toggle (size, on/off, token dropdowns, pick, deselect → free slider, export, persistence), bottom-edge resize (min/viewport/keyboard), no host reflow, collapse interruption, 3 live adapters, numeric/slider updates, replay isolation, real clipboard + denial, 320/390px, reduced preferences, unmount.\nTested ${url}`);
 } finally { await browser.close(); }

@@ -9,6 +9,10 @@ export type ScrollAreaProps = HTMLAttributes<HTMLDivElement> & {
   /** Class for the scrolling viewport (put padding here, not on the root). */
   viewportClassName?: string;
   viewportRef?: Ref<HTMLDivElement>;
+  /** Paint the Attune scrollbar (default). `false`: still scrollable, no bar — pair with `fade`. */
+  scrollbar?: boolean;
+  /** Fade the bottom edge while more content lies below; gone once scrolled to the end. */
+  fade?: boolean;
   feel?: Partial<ResolvedFeel<"scrollbar">>;
 };
 
@@ -25,11 +29,12 @@ const REACH = 8;
  * and a white grip dot marks it as something you can hold. Scrolling past an end squashes
  * the thumb against that end; it springs back once the wheel stops.
  */
-export function ScrollArea({ viewportClassName, viewportRef, feel: local, className, children, onPointerMove, onPointerLeave, ...rest }: ScrollAreaProps) {
+export function ScrollArea({ viewportClassName, viewportRef, scrollbar = true, fade = false, feel: local, className, children, onPointerMove, onPointerLeave, ...rest }: ScrollAreaProps) {
   const { p, t, deform } = useFeel("scrollbar", local);
   const view = useRef<HTMLDivElement | null>(null);
   const content = useRef<HTMLDivElement>(null);
   const [scrollable, setScrollable] = useState(false);
+  const [atEnd, setAtEnd] = useState(true);
   const [near, setNear] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [shown, setShown] = useState(false);
@@ -76,6 +81,7 @@ export function ScrollArea({ viewportClassName, viewportRef, feel: local, classN
     thumbH.set(h);
     thumbY.set(EDGE + p.inset + (o > 0 ? (overEnd.current > 0 ? L - h : 0) : top));
     setScrollable(max > 1);
+    setAtEnd(el.scrollTop >= max - 1);
   }, [p.minThumb, p.inset, over.mv, thumbH, thumbY, trackH]);
 
   useLayoutEffect(() => {
@@ -144,7 +150,7 @@ export function ScrollArea({ viewportClassName, viewportRef, feel: local, classN
   };
   const move = (e: PointerEvent<HTMLDivElement>) => {
     onPointerMove?.(e);
-    if (e.pointerType !== "mouse" || !scrollable) return;
+    if (e.pointerType !== "mouse" || !scrollable || !scrollbar) return;
     if (busyElsewhere(e)) { if (near) setNear(false); return; }
     if (!shown) reveal();
     const n = isNear(e.clientX);
@@ -196,10 +202,13 @@ export function ScrollArea({ viewportClassName, viewportRef, feel: local, classN
 
   return (
     <div {...rest} className={`at-scroll ${className ?? ""}`} onPointerMove={move} onPointerLeave={leave}
-      data-scrollable={scrollable || undefined} data-shown={(scrollable && (shown || active)) || undefined} data-active={active || undefined} data-dragging={dragging || undefined}>
+      data-scrollable={scrollable || undefined} data-shown={(scrollable && (shown || active)) || undefined} data-active={active || undefined} data-dragging={dragging || undefined}
+      data-fades={fade || undefined}
+      data-fade={(fade && scrollable && !atEnd) || undefined}>
       <div ref={setView} className={`at-scroll-view ${viewportClassName ?? ""}`} onScroll={onScroll} onWheel={onWheel}>
         <div ref={content} className="at-scroll-content">{children}</div>
       </div>
+{scrollbar && (
       <div ref={barRef} className="at-scroll-bar" aria-hidden data-at-interactive style={{ width: barWidth }} onPointerDown={trackDown}>
         <motion.div className="at-scroll-track" style={{ width: trackW, height: trackH.mv, y: EDGE }} />
         <motion.div className="at-scroll-thumb" style={{ width: width.mv, height: thumbH.mv, y: thumbY.mv }}
@@ -207,6 +216,7 @@ export function ScrollArea({ viewportClassName, viewportRef, feel: local, classN
           <motion.span className="at-scroll-dot" style={{ opacity: dotOpacity }} />
         </motion.div>
       </div>
+      )}
     </div>
   );
 }

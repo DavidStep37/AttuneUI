@@ -1,36 +1,41 @@
-import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "motion/react";
-import { Copy, GripVertical, Maximize2, Minimize2, Play, RotateCcw, SwatchBook, X } from "lucide-react";
+import { Copy, GripVertical, Maximize2, Minimize2, Play, RotateCcw, SwatchBook } from "lucide-react";
 import { AttuneRoot } from "../core/surface";
 import { Button } from "../components/Button";
+import { ToggleButton } from "../components/ToggleButton";
 import { PanelGroup, Row, SliderField, NumberField, TokenField } from "../components/Panel";
 import { SwitchField } from "../components/Switch";
 import { Select } from "../components/Select";
 import { ScrollArea } from "../components/ScrollArea";
 import { BezierEditor, type Bezier, type BezierPreset } from "../components/BezierEditor";
-import { anchorPoint, anchors, clampPoint, createMotionConfig, nearestAnchor, parseMotionTokens, serializeMotionConfig, snapConfigToTokens, tokensForField, type Anchor, type MotionConfig, type MotionDefinition, type MotionParam, type MotionTokenSet, type Point } from "./model";
+import { anchorPoint, anchors, clampPoint, createMotionConfig, nearestAnchor, serializeMotionConfig, snapConfigToTokens, tokensForField, type Anchor, type MotionConfig, type MotionDefinition, type MotionParam, type MotionTokenSet, type Point } from "./model";
 import "./workbench.css";
 
 type Mode = "minimized" | "floating";
-/** Floating panel height: user-resizable from the bottom edge, remembered with its position. */
-const PANEL = { width: 360, defaultHeight: 660, minHeight: 260 };
+/**
+ * Floating panel height always hugs its sections (collapsed groups → a short panel) and grows as they
+ * open, up to a ceiling; past that the board scrolls. The ceiling is the viewport minus `autoMargin` until the designer
+ * drags the bottom edge, which sets their own ceiling (remembered); double-click the handle to reset it.
+ * A ceiling never adds empty space — the panel stays as short as its content.
+ */
+const PANEL = { width: 360, autoMargin: 48, minHeight: 260 };
 /** Toolbar: 28px buttons with an equal 12px optical inset on all four sides. The 2×3 grip dots
  * span ~5.4px; the 16px icon sits centred in a 12px box, so the dots start ~3.3px inside it. */
 const TOOLBAR = { height: 52, width: 9 + 12 + 8 + 28 * 3 + 8 * 2 + 12 };
 type Placement = { anchor: Anchor; panel: Point | null; height: number | null };
-const readPlacement = (key: string): Placement => {
+const readPlacement = (key: string, legacyKey: string): Placement => {
   try {
-    const value = JSON.parse(localStorage.getItem(key) ?? "null");
+    const stored = localStorage.getItem(key);
+    // v1 stored a fixed height (sometimes set by a stray click); keep its position only.
+    const value = stored ? JSON.parse(stored) : { ...JSON.parse(localStorage.getItem(legacyKey) ?? "null"), height: null };
     return { anchor: anchors.includes(value?.anchor) ? value.anchor : "bottom-center",
       panel: Number.isFinite(value?.panel?.x) && Number.isFinite(value?.panel?.y) ? value.panel : null,
       height: Number.isFinite(value?.height) ? Math.max(PANEL.minHeight, value.height) : null };
   } catch { return { anchor: "bottom-center", panel: null, height: null }; }
 };
 
-const readTokens = (key: string): MotionTokenSet | null => {
-  try { const raw = localStorage.getItem(key); return raw ? parseMotionTokens(raw) : null; } catch { return null; }
-};
 
 export type MotionWorkbenchProps = {
   definitions: MotionDefinition[];
@@ -39,28 +44,39 @@ export type MotionWorkbenchProps = {
   /** The previewed page. Rendered as-is: the workbench floats above it and never reflows the host. */
   children?: ReactNode;
   theme?: "light" | "dark" | "system";
-  /** Token set loaded on first use (a stored choice from the panel wins). Accepts `parseMotionTokens` output. */
+  /**
+   * The design team's motion tokens (`parseMotionTokens` output). Adds a “启用预设” toggle to the
+   * footer; when on, token-matched fields pick from the tokens. Omit to hide the toggle.
+   */
   tokens?: MotionTokenSet | null;
-  /** One-click token sets offered in the “加载 Token” sheet, e.g. the design team's motion tokens. */
+  /** @deprecated Use `tokens`. The first set is used as the preset. */
   tokenLibrary?: MotionTokenSet[];
+  /** Preset on before the designer has toggled it in this project (their choice is remembered). */
+  defaultPresetEnabled?: boolean;
 };
 
 /** Client-only preview workbench. Remount with key={projectId} when switching projects. */
-export function MotionWorkbench({ definitions, config, onChange, children, theme = "system", tokens: initialTokens = null, tokenLibrary = [] }: MotionWorkbenchProps) {
-  const storageKey = `attune-motion:placement:v1:${config.projectId}`;
-  const tokenKey = `attune-motion:tokens:v1:${config.projectId}`;
-  const [tokenSet, setTokenSet] = useState<MotionTokenSet | null>(() => readTokens(tokenKey) ?? initialTokens);
-  const [sheet, setSheet] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [tokenError, setTokenError] = useState("");
-  const fileInput = useRef<HTMLInputElement>(null);
+export function MotionWorkbench({ definitions, config, onChange, children, theme = "system", tokens: presetProp = null, tokenLibrary = [], defaultPresetEnabled = false }: MotionWorkbenchProps) {
+  const storageKey = `attune-motion:placement:v2:${config.projectId}`;
+  const presetKey = `attune-motion:preset:v1:${config.projectId}`;
+  const preset: MotionTokenSet | null = presetProp ?? tokenLibrary[0] ?? null;
+  const [presetOn, setPresetOn] = useState(() => {
+    try { const v = localStorage.getItem(presetKey); return v === null ? defaultPresetEnabled : v === "on"; } catch { return defaultPresetEnabled; }
+  });
+  const tokenSet = preset && presetOn ? preset : null;
   /** Token-mapped fields the designer switched to “自定义” (free slider), keyed "animationId.fieldKey". */
   const [freeFields, setFreeFields] = useState<Record<string, boolean>>({});
-  const [placement, setPlacement] = useState(() => readPlacement(storageKey));
+  const [placement, setPlacement] = useState(() => readPlacement(storageKey, `attune-motion:placement:v1:${config.projectId}`));
   const [mode, setMode] = useState<Mode>("minimized");
   const [viewport, setViewport] = useState<Point>(() => ({ x: window.innerWidth, y: window.innerHeight }));
   const [dragPoint, setDragPoint] = useState<Point | null>(null);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
+  /** Content height of the expanded panel (header + sections + footer), measured live. */
+  const [natural, setNatural] = useState<number | null>(null);
+  /** Sections stay as the designer left them across collapse/expand; all start closed. */
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  /** False while the panel morphs between toolbar and panel, so that morph keeps its spring. */
+  const [settled, setSettled] = useState(false);
   const [menu, setMenu] = useState(false);
   const [status, setStatus] = useState("");
   const [fallback, setFallback] = useState<string | null>(null);
@@ -74,7 +90,10 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
   const minimized = mode === "minimized";
   const width = minimized ? TOOLBAR.width : Math.min(PANEL.width, viewport.x - 24);
   const maxHeight = Math.max(PANEL.minHeight, viewport.y - 24);
-  const height = minimized ? TOOLBAR.height : Math.min(maxHeight, dragHeight ?? placement.height ?? PANEL.defaultHeight);
+  // Default ceiling: the viewport less 48px — so fully opened sections can use almost the whole screen.
+  const ceiling = Math.min(maxHeight, dragHeight ?? placement.height ?? Math.max(PANEL.minHeight, viewport.y - PANEL.autoMargin));
+  const hugging = dragHeight === null;
+  const height = minimized ? TOOLBAR.height : Math.min(ceiling, natural ?? ceiling);
   // While resizing, the top edge stays put (the stored point is not re-clamped against the growing height).
   const point = dragPoint ?? (minimized ? anchorPoint(placement.anchor, width, height, viewport)
     : dragHeight !== null ? clampPoint(placement.panel ?? { x: viewport.x - width - 16, y: 16 }, width, PANEL.minHeight, viewport)
@@ -86,6 +105,24 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []);
+  // Measure what the expanded panel needs: header + scroll content + footer. Re-measures every frame a
+  // section reveal animates, so the panel grows with it.
+  useLayoutEffect(() => {
+    if (minimized) { setNatural(null); return; }
+    const root = shell.current;
+    const parts = [".at-mw-head", ".at-scroll-content", ".at-mw-footer"].map(sel => root?.querySelector<HTMLElement>(sel));
+    if (parts.some(p => !p)) return;
+    const measure = () => setNatural(Math.ceil(parts.reduce((sum, p) => sum + p!.offsetHeight, 0)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    parts.forEach(p => ro.observe(p!));
+    return () => ro.disconnect();
+  }, [minimized]);
+  useEffect(() => {
+    setSettled(false);
+    const id = setTimeout(() => setSettled(true), 450);
+    return () => clearTimeout(id);
+  }, [mode]);
   useEffect(() => { try { localStorage.setItem(storageKey, JSON.stringify(placement)); } catch { /* Session memory still works. */ } }, [storageKey, placement]);
   useEffect(() => () => clearTimeout(hoverTimer.current), []);
   useEffect(() => {
@@ -110,53 +147,53 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
   };
   // Defaults come from the registered fields, so "reset all" restores every group's source values.
   // With tokens loaded, the baseline is those defaults snapped onto the nearest tokens.
-  const defaults = createMotionConfig(config.projectId, definitions);
-  const baseline = tokenSet ? snapConfigToTokens(defaults, definitions, tokenSet).config : defaults;
-  const pristine = JSON.stringify(baseline.animations) === JSON.stringify(config.animations);
+  // Memoized (from the remote perf pass): moving/resizing the panel re-renders the workbench every
+  // frame; none of this depends on position, so the parameter tree below can be reused as-is.
+  const defaults = useMemo(() => createMotionConfig(config.projectId, definitions), [config.projectId, definitions]);
+  const baseline = useMemo(() => tokenSet ? snapConfigToTokens(defaults, definitions, tokenSet).config : defaults, [defaults, definitions, tokenSet]);
+  const pristine = useMemo(() => JSON.stringify(baseline.animations) === JSON.stringify(config.animations), [baseline, config.animations]);
   const resetAll = () => { onChange(baseline); setFreeFields({}); setStatus("已重置全部参数"); };
 
-  /* Design tokens: loaded sets turn matching sliders into segmented ones and easings into curve presets. */
-  const loadTokens = (set: MotionTokenSet) => {
+  /* Preset (design tokens): token-matched fields pick from the tokens, easings use them as curve presets. */
+  const setPreset = (on: boolean) => {
+    setPresetOn(on); setFreeFields({});
+    try { localStorage.setItem(presetKey, on ? "on" : "off"); } catch { /* Session memory still works. */ }
+    if (!on || !preset) { setStatus("已关闭预设，参数恢复滑块调节"); return; }
+    const set = preset;
     const { config: next, snapped, segmented } = snapConfigToTokens(config, definitions, set);
     const easings = definitions.reduce((n, d) => n + d.fields.filter(f => f.type === "bezier" && tokensForField(f, set).length).length, 0);
-    setTokenSet(set); setSheet(false); setDraft(""); setTokenError(""); setFreeFields({});
-    try { localStorage.setItem(tokenKey, JSON.stringify(set)); } catch { /* Session memory still works. */ }
     if (snapped) onChange(next);
-    setStatus(segmented + easings === 0 ? `已加载「${set.name}」，但没有字段匹配（检查单位或字段的 token）`
-      : `已加载「${set.name}」：${segmented} 个参数改为 token 选择${easings ? `，${easings} 条曲线使用 token 预设` : ""}${snapped ? `，${snapped} 个值取最近的 token` : ""}`);
+    setStatus(segmented + easings === 0 ? `已启用「${set.name}」，但没有字段匹配（检查单位或字段的 token）`
+      : `已启用「${set.name}」：${segmented} 个参数改为 token 选择${easings ? `，${easings} 条曲线使用 token 预设` : ""}${snapped ? `，${snapped} 个值取最近的 token` : ""}`);
   };
-  const loadDraft = (text = draft) => {
-    try { loadTokens(parseMotionTokens(text)); } catch (e) { setTokenError((e as Error).message); }
-  };
-  const unloadTokens = () => {
-    setTokenSet(null); setFreeFields({});
-    try { localStorage.removeItem(tokenKey); } catch { /* ignore */ }
-    setStatus("已移除 Token，参数恢复滑块调节");
-  };
-  const update = (id: string, key: string, value: MotionParam) => onChange({ ...config, animations: {
+  const update = useCallback((id: string, key: string, value: MotionParam) => onChange({ ...config, animations: {
     ...config.animations, [id]: { ...config.animations[id], [key]: value },
-  } });
-  const replay = async (id?: string) => {
+  } }), [config, onChange]);
+  const replay = useCallback(async (id?: string) => {
     setMenu(false);
     const selected = definitions.filter(d => !id || d.id === id);
     const results = await Promise.allSettled(selected.map(d => Promise.resolve().then(() => d.replay(config.animations[d.id]))));
     const failed = results.flatMap((result, i) => result.status === "rejected" ? [selected[i].label] : []);
     if (failed.length) setStatus(`重播失败：${failed.join("、")}`);
-  };
+  }, [config, definitions]);
   const copy = async () => {
     const json = serializeMotionConfig(config, definitions, tokenSet);
     try { await navigator.clipboard.writeText(json); setFallback(null); setStatus("完整 JSON 已复制"); }
     catch { setFallback(json); setStatus("剪贴板不可用，请选中下方 JSON 手动复制"); }
   };
-  const startDrag = (e: PointerEvent<HTMLButtonElement>) => {
-    if (e.button !== 0) return;
+  const startDrag = (e: PointerEvent<HTMLElement>) => {
+    // The grip sits inside the header: its pointerdown bubbles up, so only start once.
+    if (e.button !== 0 || drag.current) return;
+    // The whole header is a drag handle, except its other buttons (collapse, …).
+    const target = e.target as Element;
+    if (target.closest("button, a, input, [role='slider']") && !target.closest(".at-mw-grip")) return;
     const rect = shell.current!.getBoundingClientRect();
     const origin = { x: rect.x, y: rect.y };
     drag.current = { pointerId: e.pointerId, start: { x: e.clientX, y: e.clientY }, origin, last: origin, mode };
     e.currentTarget.setPointerCapture(e.pointerId);
     setMenu(false); setDragPoint(origin);
   };
-  const moveDrag = (e: PointerEvent<HTMLButtonElement>) => {
+  const moveDrag = (e: PointerEvent<HTMLElement>) => {
     const d = drag.current;
     if (!d || d.pointerId !== e.pointerId) return;
     d.last = clampPoint({ x: d.origin.x + e.clientX - d.start.x, y: d.origin.y + e.clientY - d.start.y }, width, height, viewport);
@@ -188,7 +225,8 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
     const s = stretch.current;
     if (!s) return;
     stretch.current = null;
-    setPlacement(p => ({ ...p, panel: p.panel ?? point, height: s.last }));
+    // A click (no real drag) must not freeze the auto height; only an actual resize sets it.
+    if (Math.abs(s.last - s.origin) >= 2) setPlacement(p => ({ ...p, panel: p.panel ?? point, height: s.last }));
     setDragHeight(null);
   };
   const keyboardStretch = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -223,48 +261,12 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
   };
   const grip = <button className="at-mw-grip" type="button" aria-label="拖动面板，方向键调整位置" title="拖动 · 方向键移动"
     onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onLostPointerCapture={endDrag} onKeyDown={keyboardMove}><GripVertical size={16} /></button>;
-  const copyButton = <Button size="md" iconOnly icon={<Copy size={15} />} aria-label="复制完整 JSON" title="复制完整 JSON" onClick={copy} />;
-
-  return <>
-    {children}
-    {createPortal(<AttuneRoot theme={theme} material="frosted" blur={24} opacity={0.52} className="at-mw-root">
-      <motion.div ref={shell} className="at-mw-shell at-panel" data-mode={mode} data-anchor={placement.anchor} data-resizing={dragHeight !== null || undefined}
-        role="region" aria-label="Attune 动效调参" initial={false}
-        animate={{ x: point.x, y: point.y, width, height, borderRadius: minimized ? 26 : 18 }}
-        transition={reduced || dragPoint || dragHeight !== null ? { duration: 0 } : transition}
-        onKeyDown={e => { if (e.key === "Escape" && !menu && !minimized) { e.stopPropagation(); changeMode("minimized"); } }}>
-        {minimized ? <motion.div key="toolbar" className="at-mw-toolbar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: reduced ? 0 : 0.15 }}>
-          {grip}
-          <Button iconOnly icon={<Maximize2 size={15} />} aria-label="展开调参面板" title="展开调参面板" onClick={() => changeMode("floating")} />
-          <div className="at-mw-play" ref={menuRoot} onKeyDown={menuKeys}
-            onPointerEnter={() => clearTimeout(hoverTimer.current)}
-            onPointerLeave={() => { hoverTimer.current = setTimeout(() => { if (!menuRoot.current?.contains(document.activeElement)) setMenu(false); }, 180); }}
-            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setMenu(false); }}>
-            {/* Hover (mouse) or ArrowUp/ArrowDown (keyboard) reveals per-animation replay; click replays all. */}
-            <Button iconOnly icon={<Play size={15} />} disabled={!definitions.length} aria-label="重播全部动效" title="重播全部动效 · 悬停或方向键选择单个"
-              aria-haspopup="menu" aria-expanded={menu}
-              onPointerEnter={e => { if (e.pointerType === "mouse") setMenu(true); }} onClick={() => replay()}
-              onKeyDown={e => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); setMenu(true); requestAnimationFrame(() => menuRoot.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()); } }} />
-            {menu && <motion.div className="at-mw-menu" role="menu" aria-label="单项动效重播" data-below={point.y < viewport.y / 2 || undefined}
-              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduced ? 0 : 0.14 }}>
-              <span className="at-mw-menu-caption">独立重播</span>
-              {definitions.map(d => <Button key={d.id} role="menuitem" onClick={() => { replay(d.id); playButton()?.focus(); }} icon={<Play size={12} />}>{d.label}</Button>)}
-              {!definitions.length && <span>当前没有注册动效</span>}
-            </motion.div>}
-          </div>
-          {copyButton}
-        </motion.div> : <motion.div key="expanded" className="at-mw-expanded" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: reduced ? 0 : 0.18 }}>
-          <header className="at-mw-head">{grip}<div className="at-mw-heading"><strong>Attune <span>Motion</span></strong></div>
-            <Button iconOnly icon={<Minimize2 size={15} />} aria-label="收起调参面板" title="收起调参面板" onClick={() => changeMode("minimized")} />
-          </header>
-          {tokenSet && <div className="at-mw-tokenbar"><SwatchBook size={13} aria-hidden /><span className="at-mw-tokenbar-name" title={tokenSet.name}>{tokenSet.name}</span>
-            <span className="at-mw-tokenbar-meta">{tokenSet.tokens.length} 个 token</span>
-            <button type="button" className="at-icon-btn" aria-label="移除 Token" title="移除 Token，恢复连续调节" onClick={unloadTokens}><X size={13} /></button></div>}
-          <ScrollArea className="at-mw-scroll-area" viewportClassName="at-mw-scroll">
-            {!definitions.length && <p className="at-mw-note">还没有动效。注册动效后，参数会显示在这里。</p>}
-            {definitions.map((d, index) => <PanelGroup key={d.id} title={d.label} badge={String(index + 1).padStart(2, "0")}
-              actions={<Button size="sm" iconOnly icon={<Play size={12} />} aria-label={`重播${d.label}`} onClick={() => replay(d.id)} />}>
-              {d.description && <p className="at-mw-note">{d.description}</p>}
+  // Parameter tree, reused across position/size/status re-renders; recomputed only when values,
+  // definitions, tokens, custom mode or open sections change. Not built while minimized.
+  const groups = useMemo(() => minimized ? null : definitions.map(d => <PanelGroup key={d.id} title={d.description ? <span title={d.description}>{d.label}</span> : d.label}
+              open={!!openGroups[d.id]} onOpenChange={o => setOpenGroups(g => ({ ...g, [d.id]: o }))}
+              // Same size and x as the footer's “重播全部”, so the play buttons form one column.
+              leading={<Button iconOnly icon={<Play size={15} />} aria-label={`重播${d.label}`} title={`重播${d.label}`} onClick={() => replay(d.id)} />}>
               {d.fields.map(f => {
                 const value = config.animations[d.id][f.key];
                 const label = `${d.label} · ${f.label}`;
@@ -293,28 +295,59 @@ export function MotionWorkbench({ definitions, config, onChange, children, theme
                 return <Row key={f.key} stacked label={f.label} hint={f.hint} modified={curve.some((n, i) => n !== f.default[i])} onReset={() => update(d.id, f.key, f.default)}>
                   <div className="at-mw-bezier"><BezierEditor size={180} framed presets={presets} presetPicker={!presets || presets.length <= 8 ? "radial" : "select"} value={curve} onChange={v => update(d.id, f.key, v)} /></div></Row>;
               })}
-            </PanelGroup>)}
+            </PanelGroup>), [minimized, definitions, config.animations, baseline, tokenSet, freeFields, openGroups, update, replay]);
+  const copyButton = <Button size="md" iconOnly icon={<Copy size={15} />} aria-label="复制完整 JSON" title="复制完整 JSON" onClick={copy} />;
+
+  return <>
+    {children}
+    {createPortal(<AttuneRoot theme={theme} material="frosted" blur={24} opacity={0.52} className="at-mw-root">
+      <motion.div ref={shell} className="at-mw-shell at-panel" data-mode={mode} data-anchor={placement.anchor} data-resizing={dragHeight !== null || undefined}
+        role="region" aria-label="Attune 动效调参" initial={false}
+        animate={{ x: point.x, y: point.y, width, height, borderRadius: minimized ? 26 : 24 }}
+        transition={reduced || dragPoint || dragHeight !== null ? { duration: 0 }
+          // Hugging: height tracks the content's own (already animated) reveal frame by frame.
+          : hugging && settled && !minimized ? { ...transition, height: { duration: 0 } } : transition}
+        onKeyDown={e => { if (e.key === "Escape" && !menu && !minimized) { e.stopPropagation(); changeMode("minimized"); } }}>
+        {minimized ? <motion.div key="toolbar" className="at-mw-toolbar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: reduced ? 0 : 0.15 }}>
+          {grip}
+          <Button iconOnly icon={<Maximize2 size={15} />} aria-label="展开调参面板" title="展开调参面板" onClick={() => changeMode("floating")} />
+          <div className="at-mw-play" ref={menuRoot} onKeyDown={menuKeys}
+            onPointerEnter={() => clearTimeout(hoverTimer.current)}
+            onPointerLeave={() => { hoverTimer.current = setTimeout(() => { if (!menuRoot.current?.contains(document.activeElement)) setMenu(false); }, 180); }}
+            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setMenu(false); }}>
+            {/* Hover (mouse) or ArrowUp/ArrowDown (keyboard) reveals per-animation replay; click replays all. */}
+            <Button iconOnly icon={<Play size={15} />} disabled={!definitions.length} aria-label="重播全部动效" title="重播全部动效 · 悬停或方向键选择单个"
+              aria-haspopup="menu" aria-expanded={menu}
+              onPointerEnter={e => { if (e.pointerType === "mouse") setMenu(true); }} onClick={() => replay()}
+              onKeyDown={e => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); setMenu(true); requestAnimationFrame(() => menuRoot.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()); } }} />
+            {menu && <motion.div className="at-mw-menu" role="menu" aria-label="单项动效重播" data-below={point.y < viewport.y / 2 || undefined}
+              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduced ? 0 : 0.14 }}>
+              <span className="at-mw-menu-caption">独立重播</span>
+              {definitions.map(d => <Button key={d.id} role="menuitem" onClick={() => { replay(d.id); playButton()?.focus(); }} icon={<Play size={12} />}>{d.label}</Button>)}
+              {!definitions.length && <span>当前没有注册动效</span>}
+            </motion.div>}
+          </div>
+          {copyButton}
+        </motion.div> : <motion.div key="expanded" className="at-mw-expanded" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: reduced ? 0 : 0.18 }}>
+          <header className="at-mw-head" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onLostPointerCapture={endDrag}>{grip}<div className="at-mw-heading"><strong>Attune <span>Motion</span></strong></div>
+            <Button iconOnly icon={<Minimize2 size={15} />} aria-label="收起调参面板" title="收起调参面板" onClick={() => changeMode("minimized")} />
+          </header>
+          {/* Parameters live on a raised sheet; header and footer sit on the panel itself. */}
+          <div className="at-mw-board">
+          <ScrollArea className="at-mw-scroll-area" viewportClassName="at-mw-scroll" scrollbar={false} fade>
+            {!definitions.length && <p className="at-mw-note">还没有动效。注册动效后，参数会显示在这里。</p>}
+            {groups}
           </ScrollArea>
-          <footer className="at-mw-footer"><Button icon={<Play size={13} />} disabled={!definitions.length} onClick={() => replay()}>重播全部</Button>
-            <Button iconOnly icon={<SwatchBook size={14} />} aria-label="加载动效 Token" title={tokenSet ? `已加载 ${tokenSet.name} · 更换 Token` : "加载动效 Token（设计组 motion token）"} aria-expanded={sheet} onClick={() => { setSheet(v => !v); setTokenError(""); }} />
+          </div>
+          <footer className="at-mw-footer"><Button iconOnly icon={<Play size={15} />} disabled={!definitions.length} aria-label="重播全部" title="重播全部" onClick={() => replay()} />
+            {preset && <ToggleButton icon={<SwatchBook size={14} />} pressed={presetOn} onPressedChange={setPreset} pressedLabel="启用预设"
+              aria-label="启用预设" title={presetOn ? `已启用 ${preset.name} · 点击关闭` : `启用预设：${preset.name}`} />}
             <Button iconOnly icon={<RotateCcw size={14} />} disabled={pristine} aria-label="重置全部参数" title="重置全部参数为默认值" onClick={resetAll} />{copyButton}</footer>
-          {sheet && <motion.div className="at-mw-sheet" role="dialog" aria-label="加载动效 Token" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduced ? 0 : 0.16 }}
-            onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setSheet(false); } }}>
-            <div className="at-mw-sheet-head"><strong>加载动效 Token</strong><button type="button" className="at-icon-btn" aria-label="关闭" onClick={() => setSheet(false)}><X size={14} /></button></div>
-            <p className="at-mw-note">加载后，时长（ms）和距离（px）参数改为从 token 中选择（可选“自定义”自由调节），缓动曲线使用 token 预设；当前值会取最近的 token。</p>
-            {tokenLibrary.length > 0 && <div className="at-mw-sheet-library">{tokenLibrary.map(set => <Button key={set.name} icon={<SwatchBook size={13} />} onClick={() => loadTokens(set)}>{set.name}</Button>)}</div>}
-            <textarea aria-label="粘贴 token JSON" spellCheck={false} value={draft} onChange={e => { setDraft(e.target.value); setTokenError(""); }}
-              placeholder={'{\n  "name": "设计组 Motion",\n  "Duration": { "short-1": "100ms", "short-2": "150ms" },\n  "Easing": { "easeOut": [0.33, 1, 0.68, 1] }\n}'} />
-            {tokenError && <p className="at-mw-sheet-error" role="alert">{tokenError}</p>}
-            <div className="at-mw-sheet-actions">
-              <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={async e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) { const text = await file.text(); setDraft(text); loadDraft(text); } }} />
-              <Button onClick={() => fileInput.current?.click()}>选择 JSON 文件</Button>
-              <Button variant="primary" disabled={!draft.trim()} onClick={() => loadDraft()}>加载</Button>
-            </div>
-          </motion.div>}
           <div className="at-mw-resize" role="separator" aria-orientation="horizontal" aria-label="拖动调整面板高度，方向键调整" tabIndex={0}
             aria-valuemin={PANEL.minHeight} aria-valuemax={maxHeight} aria-valuenow={Math.round(height)}
-            onPointerDown={startStretch} onPointerMove={moveStretch} onPointerUp={endStretch} onPointerCancel={endStretch} onLostPointerCapture={endStretch} onKeyDown={keyboardStretch}><span /></div>
+            onPointerDown={startStretch} onPointerMove={moveStretch} onPointerUp={endStretch} onPointerCancel={endStretch} onLostPointerCapture={endStretch} onKeyDown={keyboardStretch}
+            onDoubleClick={() => { setPlacement(p => ({ ...p, height: null })); setStatus("已恢复默认高度上限"); }}
+            title="拖动设置最大高度 · 双击恢复默认"><span /></div>
         </motion.div>}
         <div className="at-mw-status" role="status" data-below={point.y < viewport.y / 2 || undefined}>{status}</div>
         {fallback && <div className="at-mw-copy-fallback" data-below={point.y < viewport.y / 2 || undefined}><textarea aria-label="完整动效 JSON，手动复制" readOnly value={fallback} onFocus={e => e.currentTarget.select()} autoFocus /><Button onClick={() => setFallback(null)}>关闭</Button></div>}

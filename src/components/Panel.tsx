@@ -306,22 +306,33 @@ export function PanelGroup({
   badge,
   children,
   defaultOpen = true,
+  open: openProp,
+  onOpenChange,
   actions,
+  leading,
 }: {
   title: ReactNode;
   badge?: ReactNode;
   children: ReactNode;
   defaultOpen?: boolean;
+  /** Controlled open state (optional); pair with onOpenChange. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   actions?: ReactNode;
+  /** Controls before the title (e.g. a per-section play button), outside the toggle. */
+  leading?: ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const [revealed, setRevealed] = useState(defaultOpen);
+  const [openState, setOpenState] = useState(openProp ?? defaultOpen);
+  const open = openProp ?? openState;
+  const setOpen = (fn: (o: boolean) => boolean) => { const next = fn(open); setOpenState(next); onOpenChange?.(next); };
+  const [revealed, setRevealed] = useState(open);
   const { springs, reduced } = useFeelState();
   return (
     <section className="at-group" data-open={open || undefined}>
       {/* Title starts at the content edge; the disclosure chevron sits at the far right, after any
           actions, so controls below span the full width instead of hanging under an indent. */}
       <div className="at-group-head">
+        {leading && <div className="at-group-leading">{leading}</div>}
         <button type="button" className="at-group-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           {badge && <span className="at-group-badge">{badge}</span>}
           <span className="at-group-title">{title}</span>

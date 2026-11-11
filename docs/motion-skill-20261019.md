@@ -52,6 +52,13 @@ node scripts/check-sizing.mjs
 ## 0.2.0 · 界面方案二选一、设计组 Token
 
 - 接入前选择界面方案：A 使用 AttuneUI 组件库（默认，外观与回归一致）；B 自行绘制（`install.mjs --ui custom` 只安装零依赖的 `model.ts`，按 `references/custom-ui.md` 用宿主组件实现同样的行为、JSON 和 token 规则）。用户未指定时由代理询问。
-- 设计组 motion token 可作为预设参数加载：面板“加载 Token”（预置集 / 粘贴 / 文件），匹配的数值字段改为 token 下拉（可选“自定义”展开连续滑块自由调节；混合长/中/短 token 做成刻度滑块过密，已放弃），曲线预设换成 easing token，导出 JSON 带 `tokenSet` 与 `tokens`。格式与映射规则见 `references/integration.md#设计组-token`。
+- 设计组 motion token 作为预设：传入 `tokens` 后面板底部出现“启用预设”开关按钮（组件库 ToggleButton，无弹窗），匹配的数值字段改为 token 下拉（可选“自定义”展开连续滑块自由调节；混合长/中/短 token 做成刻度滑块过密，已放弃），曲线预设换成 easing token，导出 JSON 带 `tokenSet` 与 `tokens`。格式与映射规则见 `references/integration.md#设计组-token`。
 - 面板滚动条在操作其他控件时不再响应悬停。
+
+## 0.3.0 · 预设开关、抬升面板、贴合高度
+
+- 设计组 token 改为一套预设：`tokens` prop + footer 的“启用预设”开关按钮（组件库 `ToggleButton`），去掉加载弹层与粘贴/文件入口；`defaultPresetEnabled` 控制首次状态，`tokenLibrary` 为兼容别名。开启后匹配字段使用 `TokenField`。
+- 展开面板分为外框（header/footer）与内缩的抬升参数面板（半透明面板色、16px 圆角），组间通栏分隔线，悬停分组点亮；外框圆角 24px；“重播全部”为图标按钮；分组描述只作标题悬停提示。
+- 高度：分组默认折叠，面板贴合内容随展开变高，上限为 min(内容高度, 视口 − 48)；拖动底边设置的是上限（不留空白），双击恢复；抬升面板内无滚动条，底部渐隐提示还有内容。位置存储升级为 v2（v1 只迁移位置）。
+- 组件库同步：下拉展开样式（底环 + 白色表头 + 当前值浅底）、圆盘选中胶囊与液面填充、ScrollArea `scrollbar` / `fade`、PanelGroup 受控 `open`。
 
