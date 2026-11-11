@@ -46,6 +46,7 @@ export function AttuneRoot({ theme = "system", material = "solid", blur = 18, op
   const lessTransparency = useSyncExternalStore(transparencyMedia.subscribe, transparencyMedia.snapshot, transparencyMedia.server);
   const resolvedTheme = theme === "system" ? systemDark ? "dark" : "light" : theme;
   const reduced = feel?.reduced ?? systemReduced;
+  const providerValue = useMemo(() => ({ ...feel, reduced }), [feel, reduced]);
   const scope = useMemo<Scope>(() => ({
     "data-at-material": lessTransparency ? "solid" : material,
     "data-reduced-motion": reduced ? "true" : "false",
@@ -59,7 +60,7 @@ export function AttuneRoot({ theme = "system", material = "solid", blur = 18, op
     } as CSSProperties,
   }), [resolvedTheme, colors, material, lessTransparency, blur, opacity, panelRadius, reduced]);
   return <SurfaceContext.Provider value={scope}>
-    <AttuneProvider value={{ ...feel, reduced }}>
+    <AttuneProvider value={providerValue}>
       <MotionConfig reducedMotion={reduced ? "always" : "never"}>
         <div {...rest} {...scope} className={`at-root ${className ?? ""}`} style={{ ...scope.style, ...style }}>{children}</div>
       </MotionConfig>

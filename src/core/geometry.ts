@@ -47,16 +47,16 @@ export function profilePath(xs: number[], half: (x: number) => number, cy: (x: n
   if (xs.length < 2) return "";
   let top = "";
   let bottom = "";
+  const bottomPoints = new Array<string>(xs.length);
   for (let i = 0; i < xs.length; i++) {
     const x = xs[i];
     const h = Math.max(0, half(x));
     const c = cy(x);
     top += `${i === 0 ? "M" : "L"}${f(x)} ${f(c - h)}`;
+    bottomPoints[i] = `L${f(x)} ${f(c + h)}`;
   }
   for (let i = xs.length - 1; i >= 0; i--) {
-    const x = xs[i];
-    const h = Math.max(0, half(x));
-    bottom += `L${f(x)} ${f(cy(x) + h)}`;
+    bottom += bottomPoints[i];
   }
   return `${top}${bottom}Z`;
 }
@@ -395,8 +395,10 @@ export function nestedSlider(i: NestedSliderInput) {
   const shoulderBlend = (x: number, rail: number, head: number) =>
     2.5 * focus * smoothGate((Math.abs(x - cx) - flatHalf) / 8)
       * smoothGate(rail / 2.5) * smoothGate(head / 2.5);
+  const leftBody = body(left);
+  const rightBody = body(right);
   const outerEnvelope = (x: number) => {
-    const rail = body(x) * cap(x, left, right, body(left), body(right));
+    const rail = body(x) * cap(x, left, right, leftBody, rightBody);
     // The shell wraps the round head even near the ends or with a narrow
     // shoulder. Blend the contact instead of flattening/clipping the circle.
     const head = capsule(x, headHalf + shellGap);
@@ -405,9 +407,10 @@ export function nestedSlider(i: NestedSliderInput) {
   const outerHalf = outerEnvelope;
   const fillLeft = left + shellGap;
   const fillRight = Math.min(right - shellGap, cx + headRX);
+  const fillLeftRadius = Math.max(1, body(fillLeft) - shellGap);
   const innerHalf = (x: number) => {
     const head = capsule(x, headHalf);
-    const rail = (body(x) - shellGap) * cap(x, fillLeft, fillRight, Math.max(1, body(fillLeft) - shellGap), headRX);
+    const rail = (body(x) - shellGap) * cap(x, fillLeft, fillRight, fillLeftRadius, headRX);
     const envelope = x >= cx
       ? head
       : smoothMax(head, rail, shoulderBlend(x, rail, head));
@@ -416,8 +419,12 @@ export function nestedSlider(i: NestedSliderInput) {
   const outerPath = profilePath(samples(left, right, Math.max(outerRest, headRX + gap) + 1, 0.8, 0.2), outerHalf, () => 14);
   // Use SVG arcs for the exposed head, so the tip stays round at any zoom.
   const fillXs = samples(fillLeft, cx, headRX + 1, 0.8, 0.2);
-  const fillTop = fillXs.map((x, n) => `${n === 0 ? "M" : "L"}${f(x)} ${f(14 - innerHalf(x))}`).join("");
-  const fillBottom = [...fillXs].reverse().map((x) => `L${f(x)} ${f(14 + innerHalf(x))}`).join("");
+  const fillHeights = fillXs.map(innerHalf);
+  const fillTop = fillXs.map((x, n) => `${n === 0 ? "M" : "L"}${f(x)} ${f(14 - fillHeights[n])}`).join("");
+  const fillBottom = fillXs.map((_, index) => {
+    const reverse = fillXs.length - 1 - index;
+    return `L${f(fillXs[reverse])} ${f(14 + fillHeights[reverse])}`;
+  }).join("");
   const capCx = cx + flatHalf;
   // The opaque head remains behind the thumb even at min. Progress changes
   // the selected length, never its color or opacity.

@@ -114,6 +114,12 @@ try {
   assert.equal(exported.animations.entrance.parameters.duration, 920); assert.equal(exported.animations.hover.parameters.duration, 250);
   assert.equal(exported.animations.notice.parameters.hold, 1000); assert.equal(exported.animations.entrance.units.duration, 'ms');
 
+  // The whole header (not just the grip) moves the expanded panel; its buttons still click.
+  { const head = await (await page.$('.at-mw-heading')).boundingBox(); const p0 = await bounds();
+    // Start on the empty part of the title block (it stretches up to the collapse button); move left only,
+    // since a tall panel has no vertical room to move.
+    await page.mouse.move(head.x + head.width - 12, head.y + 8); await page.mouse.down(); await page.mouse.move(head.x + head.width - 92, head.y + 8, { steps: 8 }); await page.mouse.up(); await pause();
+    const p1 = await bounds(); assert(Math.abs(p1.x - (p0.x - 80)) < 1.5 && Math.abs(p1.y - p0.y) < 1.5, `Header drag moves the panel: ${JSON.stringify([p0, p1])}`); }
   await dragTo(480, 150); const remembered = await bounds();
   await click('收起调参面板'); await click('展开调参面板');
   const restored = await bounds(); assert(Math.abs(restored.x - remembered.x) < 1 && Math.abs(restored.y - remembered.y) < 1);
@@ -234,5 +240,5 @@ try {
   await page.$eval('.ml-bottom button', el => el.click()); await pause(); assert.equal(await page.$('.at-mw-root'), null);
   assert.deepEqual(await page.evaluate(() => ({ font: getComputedStyle(document.body).fontSize, color: getComputedStyle(document.body).color })), bodyStyle);
   assert.deepEqual(errors, []);
-  console.log(`PASS: six anchors, position + height memory, play column alignment, hug height (collapsed sections, grow, cap = viewport − 48, fade, remembered sections, dblclick auto), preset toggle (size, on/off, token dropdowns, pick, deselect → free slider, export, persistence), bottom-edge resize (min/viewport/keyboard), no host reflow, collapse interruption, 3 live adapters, numeric/slider updates, replay isolation, real clipboard + denial, 320/390px, reduced preferences, unmount.\nTested ${url}`);
+  console.log(`PASS: six anchors, position + height memory, play column alignment, header drag, hug height (collapsed sections, grow, cap = viewport − 48, fade, remembered sections, dblclick auto), preset toggle (size, on/off, token dropdowns, pick, deselect → free slider, export, persistence), bottom-edge resize (min/viewport/keyboard), no host reflow, collapse interruption, 3 live adapters, numeric/slider updates, replay isolation, real clipboard + denial, 320/390px, reduced preferences, unmount.\nTested ${url}`);
 } finally { await browser.close(); }

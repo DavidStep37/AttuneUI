@@ -62,3 +62,9 @@ node scripts/check-sizing.mjs
 - 高度：分组默认折叠，面板贴合内容随展开变高，上限为 min(内容高度, 视口 − 48)；拖动底边设置的是上限（不留空白），双击恢复；抬升面板内无滚动条，底部渐隐提示还有内容。位置存储升级为 v2（v1 只迁移位置）。
 - 组件库同步：下拉展开样式（底环 + 白色表头 + 当前值浅底）、圆盘选中胶囊与液面填充、ScrollArea `scrollbar` / `fade`、PanelGroup 受控 `open`。
 
+## 1.0.0 · 发布版
+
+- 发布内容即 `npm run skill:pack` 生成的 `.backup/releases/attune-motion/`（SKILL.md、agents/openai.yaml、references 五份、assets：组件源码快照 / 示例 / token 样例 / 基准截图、scripts：install.mjs 与 verify-example.mjs），并打包为 `.backup/releases/attune-motion-v1.0.0.zip`。
+- 相对 0.3.0：展开面板整个 header 可拖动；分组标题行与首个参数间距 8px；合入远端性能优化（几何计算提速、AttuneRoot 上下文缓存、工作台参数树缓存：拖动面板时 Slider 重渲染由每帧全部降为 0）。
+- 发布前验证：build、typecheck、registry:check、skill:check（含 custom 安装、无本机路径）、check:motion（维护页与已安装消费者）、组件库回归，以及仓库外全新项目的安装 + tsc + verify-example。仅在 macOS Chrome 上验证；未覆盖 Firefox / Safari / Windows 字体、SSR、React 18。仓库仍无 LICENSE，对外发布前需选定许可证。
+
